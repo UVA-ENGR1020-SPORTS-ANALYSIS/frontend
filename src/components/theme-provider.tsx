@@ -152,10 +152,11 @@ export function ThemeProvider({
       if (isEditableTarget(event.target)) {
         return
       }
-
+      /*
       if (event.key.toLowerCase() !== "d") {
         return
       }
+*/
 
       setThemeState((currentTheme) => {
         const nextTheme =
