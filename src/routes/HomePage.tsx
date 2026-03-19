@@ -11,7 +11,7 @@ export function HomePage() {
         <CardContent>
           <FieldGroup>
             <Field>
-              <Input placeholder="Enter session code..." />
+              <Input placeholder="Session Code" className="text-center" />
               <FieldError />
             </Field>
             <Button className="w-full">Join Game</Button>
