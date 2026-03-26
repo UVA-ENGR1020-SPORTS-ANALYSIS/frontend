@@ -5,10 +5,10 @@ import { TeamCard } from "@/components/TeamCard";
 
 // placeholder data until backend session API is wired up
 const PLACEHOLDER_TEAMS = [
-  { teamNumber: 1, playerCount: 2 },
-  { teamNumber: 2, playerCount: 3 },
-  { teamNumber: 3, playerCount: 1 },
-  { teamNumber: 4, playerCount: 2 },
+  { teamNumber: 1, players: ["Lamin", "Sachin"] },
+  { teamNumber: 2, players: ["Micah", "Frank", "Nate"] },
+  { teamNumber: 3, players: ["Alex"] },
+  { teamNumber: 4, players: ["Jordan", "Taylor"] },
 ];
 
 export function LobbyPage() {
@@ -34,7 +34,7 @@ export function LobbyPage() {
             <TeamCard
               key={team.teamNumber}
               teamNumber={team.teamNumber}
-              playerCount={team.playerCount}
+              players={team.players}
             />
           ))}
         </CardContent>
@@ -45,6 +45,7 @@ export function LobbyPage() {
         <Button
           className="w-full"
           render={<Link to={`/session/${sessionCode}/game`} />}
+          nativeButton={false}
         >
           Start Game
         </Button>
@@ -52,6 +53,7 @@ export function LobbyPage() {
           variant="ghost"
           className="w-full"
           render={<Link to="/" />}
+          nativeButton={false}
         >
           Leave Session
         </Button>
