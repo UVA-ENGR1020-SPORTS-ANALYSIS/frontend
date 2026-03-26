@@ -63,7 +63,14 @@ export function HomePage() {
 
   const handleTeamSelect = (count: TeamCount) => {
     setTeamCount(count);
-    setStep("session-code");
+    if (count === 1) {
+      // Single team doesn't need a session code
+      setMemberCount(1);
+      replace([{ name: "" }]);
+      setStep("member-names");
+    } else {
+      setStep("session-code");
+    }
   };
 
   const handleCodeSubmit = async () => {
@@ -108,7 +115,8 @@ export function HomePage() {
         teamCount,
         members: data.members.map((m) => m.name),
       });
-      navigate(`/session/${sessionCode}/lobby`);
+      const code = sessionCode || "solo";
+      navigate(`/session/${code}/lobby`);
     } catch (err) {
       console.error("Failed to join:", err);
     }
@@ -120,7 +128,11 @@ export function HomePage() {
       setCodeError("");
       setStep("team-select");
     } else if (step === "member-names") {
-      setStep("session-code");
+      if (teamCount === 1) {
+        setStep("team-select");
+      } else {
+        setStep("session-code");
+      }
     }
   };
 
@@ -146,7 +158,7 @@ export function HomePage() {
                 onClick={() => handleTeamSelect(count)}
               >
                 <Users className="size-4" />
-                Join as {count} {count === 1 ? "Team" : "Teams"}
+                {count}-Team Game
               </Button>
             ))}
           </CardContent>
