@@ -1,6 +1,8 @@
 import { createBrowserRouter } from "react-router-dom";
 import RootLayout from "./RootLayout.tsx";
 import HomePage from "./routes/HomePage.tsx";
+import JoinCodePage from "./routes/join/JoinCodePage.tsx";
+import JoinMembersPage from "./routes/join/JoinMembersPage.tsx";
 import LobbyPage from "./routes/LobbyPage.tsx";
 import GamePage from "./routes/GamePage.tsx";
 import ResultsPage from "./routes/ResultsPage.tsx";
@@ -16,6 +18,14 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <HomePage />,
+      },
+      {
+        path: "join/code",
+        element: <JoinCodePage />,
+      },
+      {
+        path: "join/members",
+        element: <JoinMembersPage />,
       },
       {
         path: "session/:sessionCode/lobby",
