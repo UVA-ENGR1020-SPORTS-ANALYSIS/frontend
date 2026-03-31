@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -12,8 +12,6 @@ import { validateSessionCode } from "@/api/sessions";
 
 export function JoinCodePage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const teams = searchParams.get("teams") ?? "2";
 
   const [sessionCode, setSessionCode] = useState("");
   const [codeError, setCodeError] = useState("");
@@ -29,7 +27,7 @@ export function JoinCodePage() {
 
     try {
       await validateSessionCode(sessionCode);
-      navigate(`/join/members?teams=${teams}&code=${sessionCode}`);
+      navigate(`/join/members?code=${sessionCode}`);
     } catch {
       setCodeError("Session not found or could not reach server. Check your code.");
     } finally {

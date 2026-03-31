@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup } from "@/components/ui/field";
 import { ArrowLeft } from "lucide-react";
-import { initializeSession } from "@/api/sessions";
+import { joinTeam } from "@/api/sessions";
 
 const nameSchema = z.object({
   members: z
@@ -28,9 +28,7 @@ type NameForm = z.infer<typeof nameSchema>;
 export function JoinMembersPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const teams = searchParams.get("teams") ?? "1";
   const sessionCode = searchParams.get("code") ?? "";
-  const teamCount = Number(teams);
 
   const [memberCount, setMemberCount] = useState(1);
 
@@ -56,25 +54,20 @@ export function JoinMembersPage() {
 
   const onSubmit = async (data: NameForm) => {
     try {
-      const code = sessionCode || "solo";
-      await initializeSession({
-        sessionCode: code,
-        teamCount,
-        members: data.members.map((m) => m.name),
+      const parsedCode = sessionCode ? parseInt(sessionCode, 10) : 0;
+      await joinTeam({
+        session_code: parsedCode,
+        player_names: data.members.map((m) => m.name),
       });
 
-      navigate(`/session/${code}/lobby`);
+      navigate(`/session/${sessionCode}/lobby`);
     } catch (err) {
-      console.error("Failed to initialize session:", err);
+      console.error("Failed to join team:", err);
     }
   };
 
   const goBack = () => {
-    if (teamCount === 1) {
-      navigate("/");
-    } else {
-      navigate(`/join/code?teams=${teams}`);
-    }
+    navigate("/join/code");
   };
 
   return (
@@ -97,7 +90,7 @@ export function JoinMembersPage() {
             </button>
 
             <p className="text-center text-sm text-muted-foreground">
-              How many members per team?
+              How many players on your team?
             </p>
 
             {/* member count selector */}

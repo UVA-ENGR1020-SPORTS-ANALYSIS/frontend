@@ -3,6 +3,7 @@ import RootLayout from "./RootLayout.tsx";
 import HomePage from "./routes/HomePage.tsx";
 import JoinCodePage from "./routes/join/JoinCodePage.tsx";
 import JoinMembersPage from "./routes/join/JoinMembersPage.tsx";
+import CreateTeamsPage from "./routes/create/CreateTeamsPage.tsx";
 import LobbyPage from "./routes/LobbyPage.tsx";
 import GamePage from "./routes/GamePage.tsx";
 import ResultsPage from "./routes/ResultsPage.tsx";
@@ -22,6 +23,10 @@ export const router = createBrowserRouter([
       {
         path: "join/code",
         element: <JoinCodePage />,
+      },
+      {
+        path: "create/teams",
+        element: <CreateTeamsPage />,
       },
       {
         path: "join/members",

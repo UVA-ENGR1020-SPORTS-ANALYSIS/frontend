@@ -1,11 +1,49 @@
-export interface JoinSessionPayload {
-  sessionCode: string;
-  teamCount: number;
-  members: string[];
+export interface CheckSessionResponse {
+  status: string;
+  session_code: number;
+  session_id: string;
+  current_teams_count: number;
+  message: string;
 }
 
-export async function initializeSession(data: JoinSessionPayload) {
-  const response = await fetch("/api/sessions/initialize", {
+export interface JoinTeamRequest {
+  player_names: string[];
+  session_id?: string;
+  session_code?: number;
+  team_count?: number;
+}
+
+export interface JoinTeamResponse {
+  status: string;
+  team_id: string;
+  players: any[];
+  message: string;
+}
+
+export interface CreateSessionRequest {
+  creator_name?: string;
+  admin_password?: string;
+  team_count?: number;
+}
+
+export interface CreateSessionResponse {
+  session_code: number;
+  session_id: string;
+}
+
+export async function validateSessionCode(sessionCode: string): Promise<CheckSessionResponse> {
+  const response = await fetch(`/api/connect/${sessionCode}`);
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Session not found");
+  }
+
+  return response.json();
+}
+
+export async function joinTeam(data: JoinTeamRequest): Promise<JoinTeamResponse> {
+  const response = await fetch("/api/connect", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -15,43 +53,24 @@ export async function initializeSession(data: JoinSessionPayload) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Failed to initialize session");
+    throw new Error(errorData?.detail || "Failed to join team");
   }
 
   return response.json();
 }
 
-export interface JoinSinglePayload {
-  sessionCode: string;
-  playerName: string;
-}
-
-export async function joinSessionSingle(data: JoinSinglePayload) {
-  const response = await fetch("/api/connect", {
+export async function createSession(data: CreateSessionRequest = {}): Promise<CreateSessionResponse> {
+  const response = await fetch("/api/sessions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      session_code: data.sessionCode,
-      player_name: data.playerName,
-    }),
+    body: JSON.stringify(data),
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Failed to join session");
-  }
-
-  return response.json();
-}
-
-export async function validateSessionCode(sessionCode: string) {
-  const response = await fetch(`/api/connect/${sessionCode}`);
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Session not found");
+    throw new Error(errorData?.detail || "Failed to create session");
   }
 
   return response.json();
