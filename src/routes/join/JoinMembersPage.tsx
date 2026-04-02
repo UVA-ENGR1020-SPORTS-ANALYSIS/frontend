@@ -31,6 +31,7 @@ export function JoinMembersPage() {
   const sessionCode = searchParams.get("code") ?? "";
 
   const [memberCount, setMemberCount] = useState(1);
+  const [submitError, setSubmitError] = useState("");
 
   const {
     register,
@@ -53,6 +54,7 @@ export function JoinMembersPage() {
   };
 
   const onSubmit = async (data: NameForm) => {
+    setSubmitError("");
     try {
       const parsedCode = sessionCode ? parseInt(sessionCode, 10) : 0;
       await joinTeam({
@@ -61,8 +63,9 @@ export function JoinMembersPage() {
       });
 
       navigate(`/session/${sessionCode}/lobby`);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to join team:", err);
+      setSubmitError(err.message || "Failed to connect to the server.");
     }
   };
 
@@ -128,6 +131,12 @@ export function JoinMembersPage() {
                 </Field>
               ))}
             </FieldGroup>
+
+            {submitError && (
+              <p className="text-center text-sm font-medium text-destructive">
+                {submitError}
+              </p>
+            )}
 
             <Button
               type="submit"

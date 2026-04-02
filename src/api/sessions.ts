@@ -75,3 +75,24 @@ export async function createSession(data: CreateSessionRequest = {}): Promise<Cr
 
   return response.json();
 }
+
+export interface GetSessionDetailsResponse {
+  session: {
+    session_id: string;
+    session_code: number;
+    target_teams: number;
+    status: string;
+  };
+  teams: any[];
+}
+
+export async function getSessionDetails(sessionCode: string): Promise<GetSessionDetailsResponse> {
+  const response = await fetch(`/api/sessions/${sessionCode}`);
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Failed to fetch session metadata");
+  }
+
+  return response.json();
+}
