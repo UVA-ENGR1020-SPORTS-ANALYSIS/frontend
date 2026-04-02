@@ -67,7 +67,7 @@ export function JoinMembersPage() {
   };
 
   const goBack = () => {
-    navigate("/join/code");
+    navigate(-1);
   };
 
   return (
