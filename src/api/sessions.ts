@@ -80,7 +80,7 @@ export interface GetSessionDetailsResponse {
   session: {
     session_id: string;
     session_code: number;
-    target_teams: number;
+    target_team: number;
     status: string;
   };
   teams: any[];

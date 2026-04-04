@@ -53,7 +53,7 @@ export function LobbyPage() {
 
   const { session, teams } = data;
   const numTeams = teams.length;
-  const targetTeams = session.target_teams;
+  const targetTeams = session.target_team;
   const isFilled = numTeams >= targetTeams;
 
   const gridClasses = 
