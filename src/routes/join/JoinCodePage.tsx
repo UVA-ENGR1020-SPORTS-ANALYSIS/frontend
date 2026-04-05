@@ -28,8 +28,8 @@ export function JoinCodePage() {
     try {
       await validateSessionCode(sessionCode);
       navigate(`/join/members?code=${sessionCode}`);
-    } catch {
-      setCodeError("Session not found or could not reach server. Check your code.");
+    } catch (err: any) {
+      setCodeError(err.message || "Session not found or could not reach server. Check your code.");
     } finally {
       setIsValidating(false);
     }
