@@ -61,10 +61,9 @@ export function LobbyPage() {
     targetTeams === 2 ? "grid-cols-2" :
     "grid-cols-2"; 
 
-  // Format team API response to match TeamCard prop specs
   const formattedTeams = teams.map((t, idx) => ({
     teamNumber: idx + 1,
-    players: (t.player || []).map((p: any) => p.name)
+    players: (t.player || []).map((p: any) => p.player_name || p.name)
   }));
 
   return (

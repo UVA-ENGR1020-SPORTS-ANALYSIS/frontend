@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup } from "@/components/ui/field";
 import { ArrowLeft } from "lucide-react";
-import { joinTeam } from "@/api/sessions";
+import { joinTeam, getSessionDetails } from "@/api/sessions";
 
 const nameSchema = z.object({
   members: z
@@ -62,7 +62,12 @@ export function JoinMembersPage() {
         player_names: data.members.map((m) => m.name),
       });
 
-      navigate(`/session/${sessionCode}/lobby`);
+      const details = await getSessionDetails(sessionCode);
+      if (details.session.target_team === 1) {
+        navigate(`/session/${sessionCode}/game`);
+      } else {
+        navigate(`/session/${sessionCode}/lobby`);
+      }
     } catch (err: any) {
       console.error("Failed to join team:", err);
       setSubmitError(err.message || "Failed to connect to the server.");
