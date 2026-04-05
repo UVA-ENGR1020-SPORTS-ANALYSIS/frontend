@@ -96,3 +96,20 @@ export async function getSessionDetails(sessionCode: string): Promise<GetSession
 
   return response.json();
 }
+
+export async function toggleTeamReady(teamId: string, isReady: boolean): Promise<{ status: string; is_ready: boolean }> {
+  const response = await fetch(`/api/connect/${teamId}/ready`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ is_ready: isReady }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Failed to update ready status");
+  }
+
+  return response.json();
+}

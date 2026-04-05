@@ -57,10 +57,13 @@ export function JoinMembersPage() {
     setSubmitError("");
     try {
       const parsedCode = sessionCode ? parseInt(sessionCode, 10) : 0;
-      await joinTeam({
+      const joinResponse = await joinTeam({
         session_code: parsedCode,
         player_names: data.members.map((m) => m.name),
       });
+
+      // Save our team ID to local storage so the Lobby knows who we are
+      localStorage.setItem("currentTeamId", joinResponse.team_id);
 
       const details = await getSessionDetails(sessionCode);
       if (details.session.target_team === 1) {

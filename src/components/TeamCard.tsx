@@ -10,6 +10,7 @@ interface TeamCardProps {
   teamNumber: number;
   players: string[];
   isHighlighted?: boolean;
+  isReady?: boolean;
   className?: string;
 }
 
@@ -17,6 +18,7 @@ export function TeamCard({
   teamNumber,
   players,
   isHighlighted = false,
+  isReady = false,
   className,
 }: TeamCardProps) {
   return (
@@ -24,16 +26,21 @@ export function TeamCard({
       <HoverCardTrigger>
         <Card
           className={cn(
-            "cursor-default transition-all duration-200",
+            "cursor-default transition-all duration-200 relative",
             isHighlighted && "ring-2 ring-foreground",
+            isReady && "border-green-500/50 bg-green-500/5",
             className,
           )}
         >
-          <CardContent className="flex flex-col items-center gap-1 py-2">
+          {isReady && (
+            <div className="absolute top-2 right-2 size-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" title="Ready" />
+          )}
+          <CardContent className="flex flex-col items-center gap-1 py-3">
             <span className="text-sm font-semibold">Team {teamNumber}</span>
             <span className="text-xs text-muted-foreground">
               {players.length} {players.length === 1 ? "player" : "players"}
             </span>
+            {isReady && <span className="text-xs font-bold tracking-wider text-green-600 mt-0.5">READY</span>}
           </CardContent>
         </Card>
       </HoverCardTrigger>

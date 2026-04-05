@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TeamCard } from "@/components/TeamCard";
 import { Users, LogOut, Play, Loader2 } from "lucide-react";
-import { getSessionDetails, type GetSessionDetailsResponse } from "@/api/sessions";
+import { cn } from "@/lib/utils";
+import { getSessionDetails, toggleTeamReady, type GetSessionDetailsResponse } from "@/api/sessions";
 
 export function LobbyPage() {
   const { sessionCode } = useParams<{ sessionCode: string }>();
@@ -13,26 +14,59 @@ export function LobbyPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const [isReadying, setIsReadying] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  const fetchSession = async () => {
     if (!sessionCode) return;
+    try {
+      const details = await getSessionDetails(sessionCode);
+      setData(details);
+      setError("");
+    } catch (err: any) {
+      setError(err.message || "Failed to load lobby.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const fetchSession = async () => {
-      try {
-        const details = await getSessionDetails(sessionCode);
-        setData(details);
-        setError("");
-      } catch (err: any) {
-        setError(err.message || "Failed to load lobby.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
+  useEffect(() => {
     fetchSession();
-    // Poll every 3 seconds to check for new teams
+    // Poll every 3 seconds to check for new teams and ready status
     const interval = setInterval(fetchSession, 3000);
     return () => clearInterval(interval);
   }, [sessionCode]);
+
+  const session = data?.session;
+  const teams = data?.teams || [];
+  const numTeams = teams.length;
+  const targetTeams = session?.target_team || 0;
+  const currentTeamId = localStorage.getItem("currentTeamId");
+  const isFilled = targetTeams > 0 && numTeams >= targetTeams;
+  
+  // Make sure ALL target teams have joined and ARE ready
+  const allReady = isFilled && teams.length === targetTeams && teams.every(t => t.is_ready === true);
+  
+  const currentTeam = teams.find(t => t.team_id === currentTeamId);
+  const isCurrentTeamReady = currentTeam?.is_ready || false;
+
+  useEffect(() => {
+    if (allReady) {
+      setCountdown((prev) => (prev === null ? 3 : prev));
+    } else {
+      setCountdown(null);
+    }
+  }, [allReady]);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown === 0) {
+      navigate(`/session/${sessionCode}/game`);
+      return;
+    }
+    const timer = setTimeout(() => setCountdown(c => (c !== null ? c - 1 : null)), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, navigate, sessionCode]);
 
   if (loading && !data) {
     return (
@@ -42,7 +76,7 @@ export function LobbyPage() {
     );
   }
 
-  if (error || !data) {
+  if (error || !data || !session) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 px-4 text-center">
         <p className="text-destructive font-medium text-lg">{error || "Lobby not found"}</p>
@@ -51,10 +85,18 @@ export function LobbyPage() {
     );
   }
 
-  const { session, teams } = data;
-  const numTeams = teams.length;
-  const targetTeams = session.target_team;
-  const isFilled = numTeams >= targetTeams;
+  const handleReadyToggle = async () => {
+    if (!currentTeamId) return;
+    setIsReadying(true);
+    try {
+      await toggleTeamReady(currentTeamId, !isCurrentTeamReady);
+      await fetchSession(); // Immediately update UI
+    } catch (err) {
+      console.error("Failed to toggle ready:", err);
+    } finally {
+      setIsReadying(false);
+    }
+  };
 
   const gridClasses = 
     targetTeams === 1 ? "grid-cols-1" :
@@ -63,6 +105,8 @@ export function LobbyPage() {
 
   const formattedTeams = teams.map((t, idx) => ({
     teamNumber: idx + 1,
+    teamId: t.team_id,
+    isReady: t.is_ready,
     players: (t.player || []).map((p: any) => p.player_name || p.name)
   }));
 
@@ -102,6 +146,8 @@ export function LobbyPage() {
                   key={team.teamNumber}
                   teamNumber={team.teamNumber}
                   players={team.players}
+                  isHighlighted={team.teamId === currentTeamId}
+                  isReady={team.isReady}
                   className="hover:scale-[1.02] transition-transform duration-300"
                 />
               ))}
@@ -110,20 +156,36 @@ export function LobbyPage() {
         </div>
 
         <div className="flex flex-col gap-3 pt-4">
-          {!isFilled && (
+          {!isFilled ? (
             <p className="text-center text-sm font-medium text-muted-foreground animate-pulse">
               Waiting for {targetTeams - numTeams} more {targetTeams - numTeams === 1 ? 'team' : 'teams'}...
             </p>
+          ) : countdown !== null ? (
+            <div className="text-center animate-bounce">
+              <p className="text-sm font-bold text-primary uppercase tracking-widest">Starting in</p>
+              <p className="text-5xl font-black text-primary">{countdown}</p>
+            </div>
+          ) : (
+            <p className="text-center text-sm font-medium text-green-600 animate-pulse">
+              Waiting for all teams to ready up...
+            </p>
           )}
-          <Button
-            size="lg"
-            className="w-full gap-2 text-lg h-14 transition-all"
-            disabled={!isFilled}
-            onClick={() => navigate(`/session/${sessionCode}/game`)}
-          >
-            <Play className="size-5 fill-current" />
-            {isFilled ? "Start Game" : "Not Ready"}
-          </Button>
+
+          {isFilled && countdown === null && currentTeamId && (
+            <Button
+              size="lg"
+              variant={isCurrentTeamReady ? "secondary" : "default"}
+              className={cn(
+                "w-full gap-2 text-lg h-14 transition-all shadow-md",
+                isCurrentTeamReady ? "border-green-500 text-green-700 bg-green-50 hover:bg-green-100" : ""
+              )}
+              onClick={handleReadyToggle}
+              disabled={isReadying}
+            >
+              <Play className={cn("size-5", isCurrentTeamReady ? "fill-green-600 text-green-600" : "fill-current")} />
+              {isReadying ? "Updating..." : isCurrentTeamReady ? "CANCEL READY" : "READY UP"}
+            </Button>
+          )}
           <Button
             variant="ghost"
             className="w-full gap-2 text-muted-foreground hover:text-destructive transition-colors"
