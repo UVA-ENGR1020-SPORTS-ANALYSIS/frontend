@@ -1,96 +1,501 @@
-import { cn } from "@/lib/utils";
+import { useRef, useState, useCallback, useEffect } from "react";
 
-interface HalfCourtProps {
-  onZoneClick: (zoneId: number) => void;
-  bannedZone?: number | null;
+// ── Types ──
+
+export interface ShotDot {
+  id: string;
+  svgX: number;
+  svgY: number;
+  made: boolean;
+  zone: number;
+  playerId: string;
 }
 
-export function HalfCourt({ onZoneClick, bannedZone }: HalfCourtProps) {
-  
-  const handlePathClick = (zoneId: number) => {
-    if (bannedZone === zoneId) return;
-    onZoneClick(zoneId);
-  };
+interface HalfCourtProps {
+  shots: ShotDot[];
+  bannedZone?: number | null;
+  onShotPlaced: (svgX: number, svgY: number, zone: number, made: boolean) => void;
+  disabled?: boolean;
+}
 
-  const getStyle = (zoneId: number) => {
-    const isBanned = bannedZone === zoneId;
-    if (isBanned) {
-      return "fill-zinc-400 stroke-black stroke-[1.5px] cursor-not-allowed opacity-60";
-    }
-    
-    // Explicit color classes to bypass Tailwind JIT dynamic interpolation issues
-    let fillClass = "fill-white";
-    if (zoneId === 1) fillClass = "fill-[#a2b5f7]";
-    if (zoneId === 2 || zoneId === 3) fillClass = "fill-[#f4a08e]";
+// ── Zone detection ──
 
-    return cn(
-      "cursor-pointer transition-all duration-200 stroke-black stroke-[1.5px]",
-      "hover:brightness-90 filter", 
-      fillClass
-    );
-  };
+function getZone(x: number, y: number): number {
+  // Court bounds: x in [30..460], y in [18..512]
+  // Zone 1: inside the key (rect 182..308, y 18..206)
+  if (x >= 182 && x <= 308 && y <= 206) return 1;
+
+  // Check if inside three-point arc
+  // The arc is centered at (245, 148) with radius 222 (approximately)
+  const arcCx = 245, arcCy = 148, arcR = 222;
+  const dist = Math.sqrt((x - arcCx) ** 2 + (y - arcCy) ** 2);
+  const insideArc = dist < arcR && y < 370;
+
+  if (insideArc) {
+    // Inside arc, left or right of key
+    if (x < 245) return 2; // upper-left
+    return 3; // upper-right
+  }
+
+  // Outside arc — use diagonal divider lines to split into zones 4, 5, 6
+  // Left diagonal: (182,306) → (30,512)
+  // Right diagonal: (308,306) → (460,512)
+  // Center vertical: x=245, y 206..315
+
+  // Left of center diagonal
+  const leftSlope = (512 - 306) / (30 - 182); // negative
+  const leftY = 306 + leftSlope * (x - 182);
+
+  const rightSlope = (512 - 306) / (460 - 308);
+  const rightY = 306 + rightSlope * (x - 308);
+
+  if (x < 182 || (x < 245 && y > leftY)) return 4; // lower-left
+  if (x > 308 || (x > 245 && y > rightY)) return 6; // lower-right
+  return 5; // lower-center
+}
+
+// ── Component ──
+
+export function HalfCourt({ shots, bannedZone, onShotPlaced, disabled }: HalfCourtProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const [pending, setPending] = useState<{
+    svgX: number;
+    svgY: number;
+    screenX: number;
+    screenY: number;
+    zone: number;
+  } | null>(null);
+
+  // Convert screen coords to SVG coords
+  const toSvgPoint = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!svgRef.current || !wrapperRef.current) return null;
+      const svgRect = svgRef.current.getBoundingClientRect();
+      const wrapRect = wrapperRef.current.getBoundingClientRect();
+      const scaleX = 490 / svgRect.width;
+      const scaleY = 530 / svgRect.height;
+      return {
+        svgX: (clientX - svgRect.left) * scaleX,
+        svgY: (clientY - svgRect.top) * scaleY,
+        screenX: clientX - wrapRect.left,
+        screenY: clientY - wrapRect.top,
+      };
+    },
+    []
+  );
+
+  const handleCourtClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (disabled) return;
+      e.stopPropagation();
+      const pt = toSvgPoint(e.clientX, e.clientY);
+      if (!pt) return;
+
+      const zone = getZone(pt.svgX, pt.svgY);
+      if (bannedZone === zone) return;
+
+      setPending({ ...pt, zone });
+    },
+    [toSvgPoint, disabled, bannedZone]
+  );
+
+  const handleMake = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!pending) return;
+      onShotPlaced(pending.svgX, pending.svgY, pending.zone, true);
+      setPending(null);
+    },
+    [pending, onShotPlaced]
+  );
+
+  const handleMiss = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!pending) return;
+      onShotPlaced(pending.svgX, pending.svgY, pending.zone, false);
+      setPending(null);
+    },
+    [pending, onShotPlaced]
+  );
+
+  // Dismiss on outside click or escape
+  useEffect(() => {
+    const dismiss = (e: MouseEvent) => {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target as Node)
+      ) {
+        setPending(null);
+      }
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPending(null);
+    };
+    document.addEventListener("click", dismiss);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("click", dismiss);
+      document.removeEventListener("keydown", esc);
+    };
+  }, []);
+
+  // Stats
+  const makes = shots.filter((s) => s.made).length;
+  const misses = shots.filter((s) => !s.made).length;
+  const attempts = shots.length;
 
   return (
-    <div className="w-full max-w-[500px] aspect-square relative bg-white overflow-hidden shadow-lg border-[3px] border-black isolate">
-      <svg viewBox="0 0 400 400" className="w-full h-full block">
-        
-        {/* === CLICKABLE ZONES === */}
-        {/* Zone 4 (Left Outside) */}
-        <path d="M 0,0 L 40,0 L 40,80 A 160 160 0 0 0 140 228 L 100,400 L 0,400 Z" className={getStyle(4)} onClick={() => handlePathClick(4)} />
-        
-        {/* Zone 5 (Center Outside) */}
-        <path d="M 100,400 L 140,228 A 160 160 0 0 0 260 228 L 300,400 Z" className={getStyle(5)} onClick={() => handlePathClick(5)} />
-        
-        {/* Zone 6 (Right Outside) */}
-        <path d="M 400,0 L 360,0 L 360,80 A 160 160 0 0 1 260 228 L 300,400 L 400,400 Z" className={getStyle(6)} onClick={() => handlePathClick(6)} />
+    <div ref={wrapperRef} className="relative flex-shrink-0 select-none">
+      <svg
+        ref={svgRef}
+        width="490"
+        height="530"
+        viewBox="0 0 490 530"
+        className="block rounded shadow-[0_5px_22px_rgba(0,0,0,0.38)] w-full max-w-[490px]"
+        style={{ cursor: disabled ? "default" : "crosshair" }}
+      >
+        <defs>
+          {/* Hardwood floor gradient */}
+          <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#b06c28" />
+            <stop offset="8%" stopColor="#c8843c" />
+            <stop offset="18%" stopColor="#d49244" />
+            <stop offset="28%" stopColor="#be7a30" />
+            <stop offset="38%" stopColor="#cc8a3e" />
+            <stop offset="50%" stopColor="#d49040" />
+            <stop offset="62%" stopColor="#c4802e" />
+            <stop offset="72%" stopColor="#d09040" />
+            <stop offset="83%" stopColor="#c88438" />
+            <stop offset="92%" stopColor="#be7a2e" />
+            <stop offset="100%" stopColor="#b07028" />
+          </linearGradient>
 
-        {/* Zone 2 (Left Inside) */}
-        <path d="M 40,0 L 40,80 A 160 160 0 0 0 200 240 L 200,170 L 140,170 L 140,0 Z" className={getStyle(2)} onClick={() => handlePathClick(2)} />
-        
-        {/* Zone 3 (Right Inside) */}
-        <path d="M 260,0 L 260,170 L 200,170 L 200,240 A 160 160 0 0 0 360 80 L 360,0 Z" className={getStyle(3)} onClick={() => handlePathClick(3)} />
-        
-        {/* Zone 1 (Paint / Key) */}
-        <path d="M 140,0 L 260,0 L 260,170 L 140,170 Z" className={getStyle(1)} onClick={() => handlePathClick(1)} />
+          {/* Vertical plank lines */}
+          <pattern
+            id="planks"
+            x="0"
+            y="0"
+            width="26"
+            height="530"
+            patternUnits="userSpaceOnUse"
+          >
+            <rect width="26" height="530" fill="none" />
+            <line
+              x1="25.5"
+              y1="0"
+              x2="25.5"
+              y2="530"
+              stroke="rgba(0,0,0,0.055)"
+              strokeWidth="1"
+            />
+          </pattern>
 
+          {/* Subtle grain */}
+          <pattern
+            id="grain"
+            x="0"
+            y="0"
+            width="26"
+            height="90"
+            patternUnits="userSpaceOnUse"
+          >
+            <line
+              x1="0"
+              y1="44"
+              x2="26"
+              y2="44"
+              stroke="rgba(0,0,0,0.025)"
+              strokeWidth="0.5"
+            />
+          </pattern>
+        </defs>
 
-        {/* === DECORATIVE COURT LINES === */}
-        {/* Outer Court Border */}
-        <rect x="0" y="0" width="400" height="400" className="fill-transparent stroke-black stroke-[3px] pointer-events-none" />
+        {/* Floor base */}
+        <rect width="490" height="530" fill="url(#wood)" />
+        <rect width="490" height="530" fill="url(#planks)" />
+        <rect width="490" height="530" fill="url(#grain)" />
 
-        {/* Paint / Key inner lines */}
-        <rect x="165" y="0" width="70" height="170" className="fill-transparent stroke-black stroke-[1px] pointer-events-none opacity-40" />
+        {/* Court boundary */}
+        <rect
+          x="30"
+          y="18"
+          width="430"
+          height="494"
+          fill="none"
+          stroke="#111"
+          strokeWidth="2.5"
+        />
 
-        {/* Free Throw Top Semi-Circle (Dashed) */}
-        <path d="M 140,170 A 60 60 0 0 1 260 170" className="fill-transparent stroke-black stroke-[1.5px] pointer-events-none stroke-dasharray-6" strokeDasharray="8 6" />
-        
-        {/* Free Throw Bottom Semi-Circle (Solid) */}
-        <path d="M 140,170 A 60 60 0 0 0 260 170" className="fill-transparent stroke-black stroke-[1.5px] pointer-events-none" />
+        {/* Key / Lane */}
+        <rect
+          x="182"
+          y="18"
+          width="126"
+          height="188"
+          fill="rgba(160,65,20,0.13)"
+          stroke="#111"
+          strokeWidth="2.2"
+        />
 
-        {/* Backboard & Hoop */}
-        <line x1="170" y1="35" x2="230" y2="35" className="stroke-black stroke-[3px] pointer-events-none" />
-        <line x1="200" y1="35" x2="200" y2="45" className="stroke-black stroke-[2px] pointer-events-none" />
-        <circle cx="200" cy="55" r="10" className="fill-transparent stroke-black stroke-[2px] pointer-events-none" />
+        {/* Free-throw circle — dashed top */}
+        <path
+          d="M182,206 A63,63 0 0,0 308,206"
+          fill="none"
+          stroke="#111"
+          strokeWidth="2"
+          strokeDasharray="5,5"
+        />
+        {/* Free-throw circle — solid bottom */}
+        <path
+          d="M182,206 A63,63 0 0,1 308,206"
+          fill="none"
+          stroke="#111"
+          strokeWidth="2"
+        />
 
-        {/* Small Ticks on the 3 point line to match the image */}
-        <line x1="0" y1="240" x2="20" y2="240" className="stroke-black stroke-[1.5px] pointer-events-none" />
-        <line x1="380" y1="240" x2="400" y2="240" className="stroke-black stroke-[1.5px] pointer-events-none" />
+        {/* Three-point line straight edges */}
+        <line x1="30" y1="18" x2="30" y2="148" stroke="#111" strokeWidth="2.2" />
+        <line x1="460" y1="18" x2="460" y2="148" stroke="#111" strokeWidth="2.2" />
+        {/* Three-point arc */}
+        <path
+          d="M30,148 A222,222 0 0,0 460,148"
+          fill="none"
+          stroke="#111"
+          strokeWidth="2.2"
+        />
 
-        {/* Mid court semicircles at the bottom boundary */}
-        <path d="M 140,400 A 60 60 0 0 1 260 400" className="fill-transparent stroke-black stroke-[1.5px] pointer-events-none" />
-        <path d="M 180,400 A 20 20 0 0 1 220 400" className="fill-transparent stroke-black stroke-[1.5px] pointer-events-none" />
+        {/* Restricted-area arc */}
+        <path
+          d="M213,18 A32,32 0 0,0 277,18"
+          fill="none"
+          stroke="#111"
+          strokeWidth="1.8"
+        />
 
+        {/* Backboard */}
+        <rect x="207" y="20" width="76" height="5" rx="1.5" fill="#111" />
+        {/* Rim post */}
+        <line x1="245" y1="25" x2="245" y2="38" stroke="#555" strokeWidth="2" />
+        {/* Rim circle */}
+        <circle
+          cx="245"
+          cy="49"
+          r="17"
+          fill="none"
+          stroke="#d96020"
+          strokeWidth="3"
+        />
+        {/* Net suggestion */}
+        <path
+          d="M234,49 Q238,62 245,66 Q252,62 256,49"
+          fill="none"
+          stroke="#c85818"
+          strokeWidth="1.2"
+          strokeDasharray="2,2"
+        />
 
-        {/* === TEXT LABELS === */}
-        <text x="200" y="145" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">1</text>
-        <text x="100" y="130" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">2</text>
-        <text x="300" y="130" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">3</text>
-        <text x="50" y="270" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">4</text>
-        <text x="200" y="320" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">5</text>
-        <text x="350" y="270" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">6</text>
+        {/* Half-court circle at bottom */}
+        <circle cx="245" cy="512" r="58" fill="none" stroke="#111" strokeWidth="2" />
 
+        {/* ── Zone divider lines ── */}
+        <line x1="245" y1="206" x2="245" y2="315" stroke="#111" strokeWidth="2.2" />
+        <line x1="182" y1="306" x2="30" y2="512" stroke="#111" strokeWidth="2.2" />
+        <line x1="308" y1="306" x2="460" y2="512" stroke="#111" strokeWidth="2.2" />
+
+        {/* ── Zone labels ── */}
+        <text
+          x="245"
+          y="120"
+          textAnchor="middle"
+          fontSize="26"
+          fontWeight="900"
+          fill="rgba(0,0,0,0.42)"
+          style={{ pointerEvents: "none" }}
+        >
+          1
+        </text>
+        <text
+          x="95"
+          y="175"
+          textAnchor="middle"
+          fontSize="26"
+          fontWeight="900"
+          fill="rgba(0,0,0,0.42)"
+          style={{ pointerEvents: "none" }}
+        >
+          2
+        </text>
+        <text
+          x="395"
+          y="175"
+          textAnchor="middle"
+          fontSize="26"
+          fontWeight="900"
+          fill="rgba(0,0,0,0.42)"
+          style={{ pointerEvents: "none" }}
+        >
+          3
+        </text>
+        <text
+          x="82"
+          y="430"
+          textAnchor="middle"
+          fontSize="26"
+          fontWeight="900"
+          fill="rgba(0,0,0,0.42)"
+          style={{ pointerEvents: "none" }}
+        >
+          4
+        </text>
+        <text
+          x="245"
+          y="440"
+          textAnchor="middle"
+          fontSize="26"
+          fontWeight="900"
+          fill="rgba(0,0,0,0.42)"
+          style={{ pointerEvents: "none" }}
+        >
+          5
+        </text>
+        <text
+          x="408"
+          y="430"
+          textAnchor="middle"
+          fontSize="26"
+          fontWeight="900"
+          fill="rgba(0,0,0,0.42)"
+          style={{ pointerEvents: "none" }}
+        >
+          6
+        </text>
+
+        {/* ── Shot dots ── */}
+        {shots.map((s) => (
+          <circle
+            key={s.id}
+            cx={s.svgX}
+            cy={s.svgY}
+            r="12"
+            fill={s.made ? "#22c55e" : "#ef4444"}
+            stroke={s.made ? "#14532d" : "#7f1d1d"}
+            strokeWidth="2"
+            opacity="0.92"
+            style={{ pointerEvents: "none" }}
+          />
+        ))}
+
+        {/* Pending circle */}
+        {pending && (
+          <circle
+            cx={pending.svgX}
+            cy={pending.svgY}
+            r="12"
+            fill="white"
+            stroke="#aaa"
+            strokeWidth="2"
+            opacity="0.88"
+            style={{ pointerEvents: "none" }}
+          />
+        )}
+
+        {/* ── Stats badges ── */}
+        <rect
+          x="30"
+          y="466"
+          width="54"
+          height="46"
+          rx="5"
+          fill="rgba(22,101,52,0.88)"
+        />
+        <text
+          x="57"
+          y="497"
+          textAnchor="middle"
+          fontSize="30"
+          fontWeight="900"
+          fill="#4ade80"
+          style={{ pointerEvents: "none" }}
+        >
+          {makes}
+        </text>
+
+        <text
+          x="245"
+          y="499"
+          textAnchor="middle"
+          fontSize="30"
+          fontWeight="900"
+          fill="white"
+          stroke="rgba(0,0,0,0.4)"
+          strokeWidth="2"
+          paintOrder="stroke"
+          style={{ pointerEvents: "none" }}
+        >
+          {attempts}
+        </text>
+
+        <rect
+          x="406"
+          y="466"
+          width="54"
+          height="46"
+          rx="5"
+          fill="rgba(127,29,29,0.88)"
+        />
+        <text
+          x="433"
+          y="497"
+          textAnchor="middle"
+          fontSize="30"
+          fontWeight="900"
+          fill="#fca5a5"
+          style={{ pointerEvents: "none" }}
+        >
+          {misses}
+        </text>
+
+        {/* Invisible click target */}
+        <rect
+          x="30"
+          y="18"
+          width="430"
+          height="440"
+          fill="transparent"
+          style={{ cursor: disabled ? "default" : "crosshair" }}
+          onClick={handleCourtClick}
+        />
       </svg>
+
+      {/* ── Make / Miss overlay ── */}
+      {pending && (
+        <div
+          className="absolute flex gap-2.5 items-center z-30 pointer-events-auto"
+          style={{
+            left: `${Math.max(30, Math.min(pending.screenX, (wrapperRef.current?.clientWidth ?? 490) - 30))}px`,
+            top: `${Math.max(60, pending.screenY)}px`,
+            transform: "translate(-50%, -115%)",
+          }}
+        >
+          <button
+            onClick={handleMake}
+            className="w-[42px] h-[42px] rounded-lg border-[2.5px] text-xl font-bold flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:scale-[1.15] transition-transform bg-green-500 border-green-800 text-white cursor-pointer"
+          >
+            ✓
+          </button>
+          <button
+            onClick={handleMiss}
+            className="w-[42px] h-[42px] rounded-lg border-[2.5px] text-xl font-bold flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:scale-[1.15] transition-transform bg-red-500 border-red-800 text-white cursor-pointer"
+          >
+            ✗
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
+export default HalfCourt;
