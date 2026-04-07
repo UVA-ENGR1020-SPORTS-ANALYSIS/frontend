@@ -6,9 +6,6 @@ interface HalfCourtProps {
 }
 
 export function HalfCourt({ onZoneClick, bannedZone }: HalfCourtProps) {
-  // A simple 6-zone SVG visualization of a half court
-  // Zones 1,2,3 are inside the arch (2-pointers)
-  // Zones 4,5,6 are outside the arch (3-pointers)
   
   const handlePathClick = (zoneId: number) => {
     if (bannedZone === zoneId) return;
@@ -17,53 +14,83 @@ export function HalfCourt({ onZoneClick, bannedZone }: HalfCourtProps) {
 
   const getStyle = (zoneId: number) => {
     const isBanned = bannedZone === zoneId;
+    if (isBanned) {
+      return "fill-zinc-400 stroke-black stroke-[1.5px] cursor-not-allowed opacity-60";
+    }
+    
+    // Explicit color classes to bypass Tailwind JIT dynamic interpolation issues
+    let fillClass = "fill-white";
+    if (zoneId === 1) fillClass = "fill-[#a2b5f7]";
+    if (zoneId === 2 || zoneId === 3) fillClass = "fill-[#f4a08e]";
+
     return cn(
-      "cursor-pointer transition-colors duration-200 stroke-border stroke-2",
-      isBanned ? "fill-muted stroke-muted cursor-not-allowed opacity-50" : "fill-background hover:fill-primary/20"
+      "cursor-pointer transition-all duration-200 stroke-black stroke-[1.5px]",
+      "hover:brightness-90 filter", 
+      fillClass
     );
   };
 
   return (
-    <div className="w-full max-w-[500px] aspect-[5/4] border-2 border-foreground relative bg-card rounded-b-lg overflow-hidden flex shadow-inner">
-      <svg viewBox="0 0 500 400" className="w-full h-full">
-        {/* Paint / Key Area */}
-        <rect x="190" y="0" width="120" height="190" className="fill-muted/30 stroke-border stroke-2" />
-        {/* Free Throw Circle */}
-        <circle cx="250" cy="190" r="60" className="fill-transparent stroke-border stroke-2" />
+    <div className="w-full max-w-[500px] aspect-square relative bg-white overflow-hidden shadow-lg border-[3px] border-black isolate">
+      <svg viewBox="0 0 400 400" className="w-full h-full block">
         
-        {/* Zone 1: Inside Left */}
-        <path d="M 0,0 L 190,0 L 190,190 C 120,200 50,120 0,60 Z" className={getStyle(1)} onClick={() => handlePathClick(1)} />
-        {/* Zone 2: Inside Center (Paint + FT Area) */}
-        <path d="M 190,0 Q 190,200 250,220 Q 310,200 310,0 Z" className={getStyle(2)} onClick={() => handlePathClick(2)} />
-        {/* Zone 3: Inside Right */}
-        <path d="M 500,0 L 310,0 L 310,190 C 380,200 450,120 500,60 Z" className={getStyle(3)} onClick={() => handlePathClick(3)} />
+        {/* === CLICKABLE ZONES === */}
+        {/* Zone 4 (Left Outside) */}
+        <path d="M 0,0 L 40,0 L 40,80 A 160 160 0 0 0 140 228 L 100,400 L 0,400 Z" className={getStyle(4)} onClick={() => handlePathClick(4)} />
         
-        {/* Three Point Arc (Boundary between inside and outside) */}
-        <path d="M 40,0 L 40,120 C 40,280 200,320 250,320 C 300,320 460,280 460,120 L 460,0" className="fill-transparent stroke-foreground stroke-4 pointer-events-none" />
+        {/* Zone 5 (Center Outside) */}
+        <path d="M 100,400 L 140,228 A 160 160 0 0 0 260 228 L 300,400 Z" className={getStyle(5)} onClick={() => handlePathClick(5)} />
+        
+        {/* Zone 6 (Right Outside) */}
+        <path d="M 400,0 L 360,0 L 360,80 A 160 160 0 0 1 260 228 L 300,400 L 400,400 Z" className={getStyle(6)} onClick={() => handlePathClick(6)} />
 
-        {/* Zone 4: Outside Left */}
-        <path d="M 0,60 C 50,120 40,280 250,320 L 250,400 L 0,400 Z" className={getStyle(4)} onClick={() => handlePathClick(4)} />
-        {/* Zone 5: Outside Center (Top of Key outside arc) */}
-        <path d="M 250,320 L 250,400 L 250,400 Z" className="hidden" /> {/* Simplified, absorbed partially by 4 & 6 for easier clicking, or we split properly */}
+        {/* Zone 2 (Left Inside) */}
+        <path d="M 40,0 L 40,80 A 160 160 0 0 0 200 240 L 200,170 L 140,170 L 140,0 Z" className={getStyle(2)} onClick={() => handlePathClick(2)} />
         
-        {/* Actually let's refine the outside zones to make 5 available */}
-        <path d="M 0,60 C 50,120 40,230 150,280 L 100,400 L 0,400 Z" className={getStyle(4)} onClick={() => handlePathClick(4)} />
-        <path d="M 150,280 C 200,310 300,310 350,280 L 400,400 L 100,400 Z" className={getStyle(5)} onClick={() => handlePathClick(5)} />
-        <path d="M 350,280 C 460,230 450,120 500,60 L 500,400 L 400,400 Z" className={getStyle(6)} onClick={() => handlePathClick(6)} />
+        {/* Zone 3 (Right Inside) */}
+        <path d="M 260,0 L 260,170 L 200,170 L 200,240 A 160 160 0 0 0 360 80 L 360,0 Z" className={getStyle(3)} onClick={() => handlePathClick(3)} />
+        
+        {/* Zone 1 (Paint / Key) */}
+        <path d="M 140,0 L 260,0 L 260,170 L 140,170 Z" className={getStyle(1)} onClick={() => handlePathClick(1)} />
 
-        {/* Hoop/Backboard */}
-        <line x1="220" y1="20" x2="280" y2="20" className="stroke-foreground stroke-4" />
-        <circle cx="250" cy="35" r="15" className="fill-transparent stroke-orange-500 stroke-4" />
+
+        {/* === DECORATIVE COURT LINES === */}
+        {/* Outer Court Border */}
+        <rect x="0" y="0" width="400" height="400" className="fill-transparent stroke-black stroke-[3px] pointer-events-none" />
+
+        {/* Paint / Key inner lines */}
+        <rect x="165" y="0" width="70" height="170" className="fill-transparent stroke-black stroke-[1px] pointer-events-none opacity-40" />
+
+        {/* Free Throw Top Semi-Circle (Dashed) */}
+        <path d="M 140,170 A 60 60 0 0 1 260 170" className="fill-transparent stroke-black stroke-[1.5px] pointer-events-none stroke-dasharray-6" strokeDasharray="8 6" />
         
-        {/* Zone Labels (approximate center for each zone) */}
-        <text x="90" y="80" className="text-xl font-bold fill-muted-foreground pointer-events-none">1</text>
-        <text x="250" y="100" className="text-xl font-bold fill-muted-foreground pointer-events-none text-anchor-middle">2</text>
-        <text x="410" y="80" className="text-xl font-bold fill-muted-foreground pointer-events-none">3</text>
-        <text x="60" y="320" className="text-xl font-bold fill-muted-foreground pointer-events-none">4</text>
-        <text x="250" y="360" className="text-xl font-bold fill-muted-foreground pointer-events-none text-anchor-middle">5</text>
-        <text x="440" y="320" className="text-xl font-bold fill-muted-foreground pointer-events-none">6</text>
+        {/* Free Throw Bottom Semi-Circle (Solid) */}
+        <path d="M 140,170 A 60 60 0 0 0 260 170" className="fill-transparent stroke-black stroke-[1.5px] pointer-events-none" />
+
+        {/* Backboard & Hoop */}
+        <line x1="170" y1="35" x2="230" y2="35" className="stroke-black stroke-[3px] pointer-events-none" />
+        <line x1="200" y1="35" x2="200" y2="45" className="stroke-black stroke-[2px] pointer-events-none" />
+        <circle cx="200" cy="55" r="10" className="fill-transparent stroke-black stroke-[2px] pointer-events-none" />
+
+        {/* Small Ticks on the 3 point line to match the image */}
+        <line x1="0" y1="240" x2="20" y2="240" className="stroke-black stroke-[1.5px] pointer-events-none" />
+        <line x1="380" y1="240" x2="400" y2="240" className="stroke-black stroke-[1.5px] pointer-events-none" />
+
+        {/* Mid court semicircles at the bottom boundary */}
+        <path d="M 140,400 A 60 60 0 0 1 260 400" className="fill-transparent stroke-black stroke-[1.5px] pointer-events-none" />
+        <path d="M 180,400 A 20 20 0 0 1 220 400" className="fill-transparent stroke-black stroke-[1.5px] pointer-events-none" />
+
+
+        {/* === TEXT LABELS === */}
+        <text x="200" y="145" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">1</text>
+        <text x="100" y="130" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">2</text>
+        <text x="300" y="130" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">3</text>
+        <text x="50" y="270" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">4</text>
+        <text x="200" y="320" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">5</text>
+        <text x="350" y="270" textAnchor="middle" className="text-[28px] pointer-events-none fill-black/80">6</text>
 
       </svg>
     </div>
   );
 }
+
