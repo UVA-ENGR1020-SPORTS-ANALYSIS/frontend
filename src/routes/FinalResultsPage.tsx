@@ -12,7 +12,6 @@ export function FinalResultsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
-  const [targetTeam, setTargetTeam] = useState(1);
   const [results, setResults] = useState<{
     myTeam: any;
     opponentTeam: any;
@@ -32,7 +31,6 @@ export function FinalResultsPage() {
         if (!teamId || !sessionCode) throw new Error("Missing info");
 
         const details = await getSessionDetails(sessionCode);
-        setTargetTeam(details.session.target_team);
         
         // Find teams
         const myTeam = details.teams.find((t: any) => t.team_id === teamId);
