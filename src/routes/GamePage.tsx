@@ -27,6 +27,7 @@ export function GamePage() {
   const [teamId, setTeamId] = useState("");
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [phase, setPhase] = useState<GamePhase>("loading");
+  const [targetTeam, setTargetTeam] = useState(2);
   const [error, setError] = useState("");
 
   // Shot tracking
@@ -49,6 +50,7 @@ export function GamePage() {
       try {
         const details = await getSessionDetails(sessionCode);
         setSessionId(details.session.session_id);
+        setTargetTeam(details.session.target_team);
 
         // Find our team's players
         const ourTeam = details.teams.find(
@@ -210,7 +212,9 @@ export function GamePage() {
           </div>
           <h1 className="text-2xl font-bold">Round Complete!</h1>
           <p className="text-muted-foreground max-w-xs">
-            Waiting for the other team to finish their round...
+            {targetTeam === 1
+              ? "All your shots have been recorded! Great job."
+              : "Waiting for the other team to finish their round..."}
           </p>
         </div>
 
