@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, RotateCcw, Trophy, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HalfCourt, type ShotDot } from "@/components/HalfCourt";
 import { getSessionDetails } from "@/api/sessions";
-import { submitShotAPI, finishRoundAPI } from "@/api/game";
+import { submitShotAPI, finishRoundAPI, fetchOpponentStatsAPI } from "@/api/game";
 
 // ── Constants ──
 const SHOTS_PER_PLAYER = 5;
@@ -21,6 +21,7 @@ type GamePhase = "loading" | "playing" | "finishing" | "waiting";
 
 export function GamePage() {
   const { sessionCode } = useParams<{ sessionCode: string }>();
+  const navigate = useNavigate();
 
   // Session data
   const [sessionId, setSessionId] = useState("");
@@ -76,6 +77,25 @@ export function GamePage() {
       }
     })();
   }, [sessionCode]);
+
+  // ── Poll for opponent completion in multiplayer ──
+  useEffect(() => {
+    if (phase !== "waiting" || targetTeam === 1 || !sessionId || !teamId) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const { status } = await fetchOpponentStatsAPI(sessionId, teamId);
+        if (status === "ready") {
+          // Opponent is also finished, navigate to ban page
+          navigate(`/session/${sessionCode}/ban`);
+        }
+      } catch (err) {
+        console.error("Polling opponent stats failed:", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [phase, targetTeam, sessionId, teamId, sessionCode, navigate]);
 
   // ── Active player ──
   const activePlayer = players[activePlayerIndex] || null;
@@ -162,7 +182,14 @@ export function GamePage() {
     setPhase("finishing");
     try {
       await finishRoundAPI({ team_id: teamId, round_number: 1 });
-      setPhase("waiting");
+      
+      if (targetTeam === 1) {
+        navigate(`/session/${sessionCode}/results`);
+      } else {
+        // Multi-team: enter waiting phase. 
+        // We will add polling in a useEffect for waiting state to transition to Ban Phase.
+        setPhase("waiting");
+      }
     } catch (err) {
       console.error("Failed to finish round:", err);
       setPhase("playing");
