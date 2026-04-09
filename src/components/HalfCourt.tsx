@@ -11,11 +11,36 @@ export interface ShotDot {
   playerId: string;
 }
 
+export interface ZoneStat {
+  makes: number;
+  attempts: number;
+  percentage: number;
+}
+
 interface HalfCourtProps {
   shots: ShotDot[];
   bannedZone?: number | null;
-  onShotPlaced: (svgX: number, svgY: number, zone: number, made: boolean) => void;
+  onShotPlaced?: (svgX: number, svgY: number, zone: number, made: boolean) => void;
   disabled?: boolean;
+  zoneStats?: Record<number, ZoneStat>;
+  interactiveBanMode?: boolean;
+  onZoneClick?: (zone: number) => void;
+}
+
+const ZONE_CENTERS: Record<number, {x: number, y: number}> = {
+  1: { x: 245, y: 120 },
+  2: { x: 95, y: 175 },
+  3: { x: 395, y: 175 },
+  4: { x: 82, y: 430 },
+  5: { x: 245, y: 440 },
+  6: { x: 408, y: 430 },
+};
+
+function getBadgeColor(percentage: number, attempts: number) {
+  if (attempts === 0) return "#9ca3af"; // gray-400
+  if (percentage >= 50) return "#22c55e"; // green-500
+  if (percentage >= 25) return "#eab308"; // yellow-500
+  return "#ef4444"; // red-500
 }
 
 // ── Zone detection ──
@@ -56,7 +81,15 @@ function getZone(x: number, y: number): number {
 
 // ── Component ──
 
-export function HalfCourt({ shots, bannedZone, onShotPlaced, disabled }: HalfCourtProps) {
+export function HalfCourt({ 
+  shots, 
+  bannedZone, 
+  onShotPlaced, 
+  disabled, 
+  zoneStats, 
+  interactiveBanMode, 
+  onZoneClick 
+}: HalfCourtProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -88,23 +121,29 @@ export function HalfCourt({ shots, bannedZone, onShotPlaced, disabled }: HalfCou
 
   const handleCourtClick = useCallback(
     (e: React.MouseEvent) => {
-      if (disabled) return;
       e.stopPropagation();
       const pt = toSvgPoint(e.clientX, e.clientY);
       if (!pt) return;
 
       const zone = getZone(pt.svgX, pt.svgY);
+
+      if (interactiveBanMode && onZoneClick) {
+        onZoneClick(zone);
+        return;
+      }
+
+      if (disabled || !onShotPlaced) return;
       if (bannedZone === zone) return;
 
       setPending({ ...pt, zone });
     },
-    [toSvgPoint, disabled, bannedZone]
+    [toSvgPoint, disabled, bannedZone, interactiveBanMode, onZoneClick, onShotPlaced]
   );
 
   const handleMake = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (!pending) return;
+      if (!pending || !onShotPlaced) return;
       onShotPlaced(pending.svgX, pending.svgY, pending.zone, true);
       setPending(null);
     },
@@ -114,7 +153,7 @@ export function HalfCourt({ shots, bannedZone, onShotPlaced, disabled }: HalfCou
   const handleMiss = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (!pending) return;
+      if (!pending || !onShotPlaced) return;
       onShotPlaced(pending.svgX, pending.svgY, pending.zone, false);
       setPending(null);
     },
@@ -465,9 +504,43 @@ export function HalfCourt({ shots, bannedZone, onShotPlaced, disabled }: HalfCou
           width="430"
           height="440"
           fill="transparent"
-          style={{ cursor: disabled ? "default" : "crosshair" }}
+          style={{ cursor: interactiveBanMode ? "crosshair" : (disabled ? "default" : "crosshair") }}
           onClick={handleCourtClick}
         />
+
+        {/* ── Heatmap Overlay ── */}
+        {zoneStats &&
+          Object.entries(zoneStats).map(([zoneStr, stat]) => {
+            const zone = parseInt(zoneStr);
+            const center = ZONE_CENTERS[zone];
+            if (!center) return null;
+            const color = getBadgeColor(stat.percentage, stat.attempts);
+
+            return (
+              <foreignObject
+                key={`badge-${zone}`}
+                x={center.x - 45}
+                y={center.y - 30}
+                width="90"
+                height="60"
+                onClick={(e) => {
+                  if (interactiveBanMode && onZoneClick) {
+                    e.stopPropagation();
+                    onZoneClick(zone);
+                  }
+                }}
+                style={{ cursor: interactiveBanMode ? "pointer" : "default" }}
+              >
+                <div 
+                  className="flex flex-col items-center justify-center w-full h-full rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.5)] border-2 border-white/60 text-white font-black leading-tight backdrop-blur-md transition-transform hover:scale-110 active:scale-95"
+                  style={{ backgroundColor: color + "ee" }}
+                >
+                  <span className="text-xl tracking-tighter">{Math.round(stat.percentage)}%</span>
+                  <span className="text-[10px] opacity-90">{stat.makes}/{stat.attempts}</span>
+                </div>
+              </foreignObject>
+            );
+          })}
       </svg>
 
       {/* ── Make / Miss overlay ── */}

@@ -35,6 +35,10 @@ export function GamePage() {
   const [shots, setShots] = useState<ShotDot[]>([]);
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [shotCounts, setShotCounts] = useState<Record<string, number>>({});
+  
+  // Game progression specific
+  const [currentRound, setCurrentRound] = useState(1);
+  const [bannedZone, setBannedZone] = useState<number | null>(null);
 
   // Animation
   const [courtVisible, setCourtVisible] = useState(false);
@@ -57,13 +61,25 @@ export function GamePage() {
         const ourTeam = details.teams.find(
           (t: any) => t.team_id === currentTeamId
         );
-        if (ourTeam?.player) {
-          setPlayers(
-            ourTeam.player.map((p: any) => ({
-              player_id: p.player_id,
-              player_name: p.player_name,
-            }))
-          );
+        if (ourTeam) {
+          if (ourTeam.round_2_finished) {
+            navigate(`/session/${sessionCode}/results`);
+            return;
+          } else if (ourTeam.round_1_finished) {
+            setCurrentRound(2);
+            setBannedZone(ourTeam.banned_zone || null);
+          } else {
+            setCurrentRound(1);
+          }
+          
+          if (ourTeam.player) {
+            setPlayers(
+              ourTeam.player.map((p: any) => ({
+                player_id: p.player_id,
+                player_name: p.player_name,
+              }))
+            );
+          }
         }
 
         setPhase("playing");
@@ -135,7 +151,7 @@ export function GamePage() {
         player_id: activePlayer.player_id,
         team_id: teamId,
         session_id: sessionId,
-        round_number: 1,
+        round_number: currentRound,
         zone,
         shot_made: made,
       }).catch((err) => console.error("Failed to record shot:", err));
@@ -181,20 +197,13 @@ export function GamePage() {
   const handleFinishRound = useCallback(async () => {
     setPhase("finishing");
     try {
-      await finishRoundAPI({ team_id: teamId, round_number: 1 });
-      
-      if (targetTeam === 1) {
-        navigate(`/session/${sessionCode}/results`);
-      } else {
-        // Multi-team: enter waiting phase. 
-        // We will add polling in a useEffect for waiting state to transition to Ban Phase.
-        setPhase("waiting");
-      }
+      await finishRoundAPI({ team_id: teamId, round_number: currentRound });
+      navigate(`/session/${sessionCode}/results`);
     } catch (err) {
       console.error("Failed to finish round:", err);
       setPhase("playing");
     }
-  }, [teamId]);
+  }, [teamId, currentRound, navigate, sessionCode]);
 
   // ── Reset (test button) ──
   const handleReset = useCallback(() => {
@@ -288,7 +297,7 @@ export function GamePage() {
         className="w-full max-w-[540px]"
       >
         <div
-          className="transition-all duration-[800ms] ease-out"
+          className="transition-all duration-[800ms] ease-out relative"
           style={{
             transform: courtVisible
               ? "rotateX(0deg)"
@@ -297,8 +306,14 @@ export function GamePage() {
             transformOrigin: "center bottom",
           }}
         >
+          {currentRound === 2 && bannedZone && (
+            <div className="absolute -top-12 left-0 w-full text-center text-red-500 font-bold animate-pulse z-10 text-xl">
+              Round 2: Zone {bannedZone} is BANNED!
+            </div>
+          )}
           <HalfCourt
             shots={shots}
+            bannedZone={bannedZone}
             onShotPlaced={handleShotPlaced}
             disabled={allDone || phase === "finishing"}
           />

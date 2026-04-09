@@ -7,6 +7,7 @@ import CreateTeamsPage from "./routes/create/CreateTeamsPage.tsx";
 import LobbyPage from "./routes/LobbyPage.tsx";
 import GamePage from "./routes/GamePage.tsx";
 import ResultsPage from "./routes/ResultsPage.tsx";
+import BanZonePage from "./routes/BanZonePage.tsx";
 import NotFoundPage from "./routes/NotFoundPage.tsx";
 import ErrorPage from "./routes/ErrorPage.tsx";
 
@@ -43,6 +44,10 @@ export const router = createBrowserRouter([
       {
         path: "session/:sessionCode/results",
         element: <ResultsPage />,
+      },
+      {
+        path: "session/:sessionCode/ban",
+        element: <BanZonePage />,
       },
       {
         path: "*",

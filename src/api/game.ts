@@ -56,6 +56,12 @@ export async function fetchOpponentStatsAPI(sessionId: string, myTeamId: string)
   return response.json();
 }
 
+export async function fetchTeamStatsAPI(teamId: string, roundNumber: number) {
+  const response = await fetch(`${BASE_URL}/api/game/team_stats/${teamId}/${roundNumber}`);
+  if (!response.ok) throw new Error("Failed to fetch team stats");
+  return response.json();
+}
+
 export async function banOpponentZoneAPI(data: BanZoneRequest) {
   const response = await fetch(`${BASE_URL}/api/game/ban`, {
     method: "POST",
