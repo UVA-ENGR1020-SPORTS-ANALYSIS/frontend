@@ -12,6 +12,7 @@ export function BanZonePage() {
   
   const [loading, setLoading] = useState(true);
   const [banning, setBanning] = useState(false);
+  const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [error, setError] = useState("");
   
   const [opponentTeamId, setOpponentTeamId] = useState("");
@@ -59,6 +60,27 @@ export function BanZonePage() {
     })();
   }, [sessionCode]);
 
+  // Poll for opponent's ban
+  useEffect(() => {
+    if (!waitingForOpponent || !sessionCode) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const teamId = localStorage.getItem("currentTeamId");
+        const details = await getSessionDetails(sessionCode);
+        const myTeam = details.teams.find((t: any) => t.team_id === teamId);
+        if (myTeam && myTeam.banned_zone !== null) {
+          clearInterval(interval);
+          navigate(`/session/${sessionCode}/game`);
+        }
+      } catch (err) {
+        console.error("Failed checking if opponent banned us:", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [waitingForOpponent, sessionCode, navigate]);
+
   const handleZoneClick = async (zone: number) => {
     if (!opponentTeamId || banning) return;
     
@@ -68,19 +90,21 @@ export function BanZonePage() {
     setBanning(true);
     try {
       await banOpponentZoneAPI({ opponent_team_id: opponentTeamId, zone });
-      // Go back to game page for round 2
-      navigate(`/session/${sessionCode}/game`);
+      // Transition to waiting for opponent to ban us
+      setBanning(false);
+      setWaitingForOpponent(true);
     } catch (err: any) {
       alert("Failed to ban zone: " + err.message);
       setBanning(false);
     }
   };
 
-  if (loading || banning) {
+  if (loading || banning || waitingForOpponent) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4">
+      <div className="flex h-[100dvh] flex-col items-center justify-center gap-4">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
         {banning && <p className="text-muted-foreground font-medium animate-pulse">Confirming Ban...</p>}
+        {waitingForOpponent && <p className="text-red-500 font-bold animate-pulse">Waiting for opponent to ban...</p>}
       </div>
     );
   }
@@ -95,27 +119,29 @@ export function BanZonePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4 gap-8">
-      <div className="text-center flex flex-col gap-2 relative z-10">
-        <div className="flex justify-center mb-2">
-          <div className="rounded-full bg-red-500/10 p-4 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-            <ShieldBan className="size-8 text-red-500" />
+    <div className="flex h-[100dvh] overflow-hidden flex-col items-center justify-center px-4 py-2 gap-2">
+      <div className="text-center flex flex-col gap-1 relative z-10 shrink-0 mt-4">
+        <div className="flex justify-center mb-1">
+          <div className="rounded-full bg-red-500/10 p-3 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+            <ShieldBan className="size-6 text-red-500" />
           </div>
         </div>
-        <h1 className="text-3xl font-black text-red-500 tracking-tight">Ban Phase</h1>
-        <p className="text-muted-foreground max-w-sm mx-auto">
-          Review the opponent's shooting performance. Tap on an area to <strong className="text-red-400">BAN</strong> them from shooting there next round!
+        <h1 className="text-2xl font-black text-red-500 tracking-tight">Ban Phase</h1>
+        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+          Tap an area below to <strong className="text-red-400">BAN</strong> the opponent from shooting there next round!
         </p>
       </div>
 
-      <div className="relative border-[3px] border-red-500/40 rounded-xl p-2 bg-red-500/5 shadow-[0_0_30px_rgba(239,68,68,0.1)] transition-all duration-1000 ease-in-out">
-        <HalfCourt 
-          shots={[]} 
-          disabled={true} 
-          zoneStats={zoneStats} 
-          interactiveBanMode={true} 
-          onZoneClick={handleZoneClick} 
-        />
+      <div className="relative shrink-1 min-h-[300px] flex items-center justify-center scale-75 origin-center -my-10">
+        <div className="border-[3px] border-red-500/40 rounded-xl p-2 bg-red-500/5 shadow-[0_0_30px_rgba(239,68,68,0.1)] transition-all duration-1000 ease-in-out">
+          <HalfCourt 
+            shots={[]} 
+            disabled={true} 
+            zoneStats={zoneStats} 
+            interactiveBanMode={true} 
+            onZoneClick={handleZoneClick} 
+          />
+        </div>
       </div>
     </div>
   );

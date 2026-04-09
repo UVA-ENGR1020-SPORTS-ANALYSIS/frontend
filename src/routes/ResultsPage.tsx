@@ -100,26 +100,26 @@ export function ResultsPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4 gap-8">
-      <div className="text-center flex flex-col gap-2">
-        <h1 className="text-3xl font-black">Round 1 Results</h1>
-        <p className="text-muted-foreground max-w-sm">
-          Your team's shooting performance across all zones.
+    <div className="flex h-[100dvh] overflow-hidden flex-col items-center justify-center px-4 py-2 gap-2">
+      <div className="text-center flex flex-col gap-1 shrink-0 mt-4">
+        <h1 className="text-2xl font-black">Round 1 Results</h1>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          Your team's shooting performance
         </p>
       </div>
 
-      <div className="relative">
+      <div className="relative shrink-1 min-h-[300px] flex items-center justify-center scale-75 origin-center -my-10">
         <HalfCourt shots={[]} disabled={true} zoneStats={zoneStats} />
       </div>
 
-      <div className="flex flex-col items-center">
-        <span className="text-5xl font-black text-primary">{totalPoints}</span>
-        <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground mt-1">
+      <div className="flex flex-col items-center shrink-0 z-10">
+        <span className="text-4xl font-black text-primary leading-none">{totalPoints}</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">
           Total Points
         </span>
       </div>
 
-      <div className="h-16 flex items-center justify-center">
+      <div className="h-14 flex items-center justify-center shrink-0 z-10 mt-2">
         {targetTeam === 1 ? (
           <div className="p-4 bg-green-500/10 text-green-600 font-bold rounded-lg border border-green-500/20">
             Game Finished! Excellent Performance.
