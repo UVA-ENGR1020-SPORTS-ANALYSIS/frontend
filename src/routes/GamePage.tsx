@@ -63,7 +63,7 @@ export function GamePage() {
         );
         if (ourTeam) {
           if (ourTeam.round_2_finished) {
-            navigate(`/session/${sessionCode}/results`);
+            navigate(`/session/${sessionCode}/final`);
             return;
           } else if (ourTeam.round_1_finished) {
             setCurrentRound(2);
@@ -198,7 +198,11 @@ export function GamePage() {
     setPhase("finishing");
     try {
       await finishRoundAPI({ team_id: teamId, round_number: currentRound });
-      navigate(`/session/${sessionCode}/results`);
+      if (currentRound === 2) {
+        navigate(`/session/${sessionCode}/final`);
+      } else {
+        navigate(`/session/${sessionCode}/results`);
+      }
     } catch (err) {
       console.error("Failed to finish round:", err);
       setPhase("playing");
