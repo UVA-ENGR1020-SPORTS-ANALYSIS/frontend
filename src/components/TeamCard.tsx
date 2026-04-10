@@ -49,8 +49,8 @@ export function TeamCard({
           <p className="text-xs font-semibold">Team {teamNumber} Members</p>
           {players.length > 0 ? (
             <ul className="text-xs text-muted-foreground">
-              {players.map((name) => (
-                <li key={name}>{name}</li>
+              {players.map((name, idx) => (
+                <li key={idx}>{name}</li>
               ))}
             </ul>
           ) : (

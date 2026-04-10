@@ -1,5 +1,15 @@
 const BASE_URL = ((import.meta.env.VITE_API_URL as string | undefined) || "http://localhost:8000").replace(/\/$/, "");
 
+async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12_000);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export interface CheckSessionResponse {
   status: string;
   session_code: number;
@@ -34,7 +44,7 @@ export interface CreateSessionResponse {
 }
 
 export async function validateSessionCode(sessionCode: string): Promise<CheckSessionResponse> {
-  const response = await fetch(`${BASE_URL}/api/connect/${sessionCode}`);
+  const response = await apiFetch(`${BASE_URL}/api/connect/${sessionCode}`);
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -45,7 +55,7 @@ export async function validateSessionCode(sessionCode: string): Promise<CheckSes
 }
 
 export async function joinTeam(data: JoinTeamRequest): Promise<JoinTeamResponse> {
-  const response = await fetch(`${BASE_URL}/api/connect`, {
+  const response = await apiFetch(`${BASE_URL}/api/connect`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -62,7 +72,7 @@ export async function joinTeam(data: JoinTeamRequest): Promise<JoinTeamResponse>
 }
 
 export async function createSession(data: CreateSessionRequest = {}): Promise<CreateSessionResponse> {
-  const response = await fetch(`${BASE_URL}/api/sessions`, {
+  const response = await apiFetch(`${BASE_URL}/api/sessions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -89,7 +99,7 @@ export interface GetSessionDetailsResponse {
 }
 
 export async function getSessionDetails(sessionCode: string): Promise<GetSessionDetailsResponse> {
-  const response = await fetch(`${BASE_URL}/api/sessions/${sessionCode}`);
+  const response = await apiFetch(`${BASE_URL}/api/sessions/${sessionCode}`);
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -100,7 +110,7 @@ export async function getSessionDetails(sessionCode: string): Promise<GetSession
 }
 
 export async function toggleTeamReady(teamId: string, isReady: boolean): Promise<{ status: string; is_ready: boolean }> {
-  const response = await fetch(`${BASE_URL}/api/connect/${teamId}/ready`, {
+  const response = await apiFetch(`${BASE_URL}/api/connect/${teamId}/ready`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

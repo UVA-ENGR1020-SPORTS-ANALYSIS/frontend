@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, RotateCcw, Trophy, Clock } from "lucide-react";
+import { Loader2, RotateCcw, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HalfCourt, type ShotDot } from "@/components/HalfCourt";
 import { getSessionDetails } from "@/api/sessions";
-import { submitShotAPI, finishRoundAPI, fetchOpponentStatsAPI } from "@/api/game";
+import { submitShotAPI, finishRoundAPI } from "@/api/game";
 
 // ── Constants ──
 const SHOTS_PER_PLAYER = 5;
@@ -15,7 +15,7 @@ interface PlayerInfo {
   player_name: string;
 }
 
-type GamePhase = "loading" | "playing" | "finishing" | "waiting";
+type GamePhase = "loading" | "playing" | "finishing";
 
 // ── Component ──
 
@@ -28,7 +28,6 @@ export function GamePage() {
   const [teamId, setTeamId] = useState("");
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [phase, setPhase] = useState<GamePhase>("loading");
-  const [targetTeam, setTargetTeam] = useState(2);
   const [error, setError] = useState("");
 
   // Shot tracking
@@ -48,14 +47,13 @@ export function GamePage() {
   useEffect(() => {
     if (!sessionCode) return;
 
-    const currentTeamId = localStorage.getItem("currentTeamId") || "";
+    const currentTeamId = sessionStorage.getItem("currentTeamId") || "";
     setTeamId(currentTeamId);
 
     (async () => {
       try {
         const details = await getSessionDetails(sessionCode);
         setSessionId(details.session.session_id);
-        setTargetTeam(details.session.target_team);
 
         // Find our team's players
         const ourTeam = details.teams.find(
@@ -93,25 +91,6 @@ export function GamePage() {
       }
     })();
   }, [sessionCode]);
-
-  // ── Poll for opponent completion in multiplayer ──
-  useEffect(() => {
-    if (phase !== "waiting" || targetTeam === 1 || !sessionId || !teamId) return;
-
-    const intervalId = setInterval(async () => {
-      try {
-        const { status } = await fetchOpponentStatsAPI(sessionId, teamId);
-        if (status === "ready") {
-          // Opponent is also finished, navigate to ban page
-          navigate(`/session/${sessionCode}/ban`);
-        }
-      } catch (err) {
-        console.error("Polling opponent stats failed:", err);
-      }
-    }, 3000);
-
-    return () => clearInterval(intervalId);
-  }, [phase, targetTeam, sessionId, teamId, sessionCode, navigate]);
 
   // ── Active player ──
   const activePlayer = players[activePlayerIndex] || null;
@@ -169,7 +148,7 @@ export function GamePage() {
         }
       }
     },
-    [activePlayer, activePlayerIndex, activePlayerShotCount, players, shotCounts, teamId, sessionId]
+    [activePlayer, activePlayerIndex, activePlayerShotCount, players, shotCounts, teamId, sessionId, currentRound]
   );
 
   // ── Player switching ──
@@ -231,62 +210,6 @@ export function GamePage() {
         ) : (
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         )}
-      </div>
-    );
-  }
-
-  // ── Waiting state ──
-  if (phase === "waiting") {
-    const totalPoints = shots.reduce((sum, s) => {
-      if (!s.made) return sum;
-      if (s.zone === 1) return sum + 1;
-      if (s.zone <= 3) return sum + 2;
-      return sum + 3;
-    }, 0);
-
-    return (
-      <div className="flex h-screen flex-col items-center justify-center gap-6 p-4">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="rounded-full bg-primary/10 p-4">
-            <Clock className="size-8 text-primary animate-pulse" />
-          </div>
-          <h1 className="text-2xl font-bold">Round Complete!</h1>
-          <p className="text-muted-foreground max-w-xs">
-            {targetTeam === 1
-              ? "All your shots have been recorded! Great job."
-              : "Waiting for the other team to finish their round..."}
-          </p>
-        </div>
-
-        <div className="flex gap-6 text-center">
-          <div className="flex flex-col">
-            <span className="text-4xl font-black text-primary">{totalPoints}</span>
-            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Points
-            </span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-4xl font-black text-green-500">
-              {shots.filter((s) => s.made).length}
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Makes
-            </span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-4xl font-black text-red-500">
-              {shots.filter((s) => !s.made).length}
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Misses
-            </span>
-          </div>
-        </div>
-
-        <Button variant="outline" size="lg" className="gap-2" onClick={handleReset}>
-          <RotateCcw className="size-4" />
-          Reset & Test Again
-        </Button>
       </div>
     );
   }

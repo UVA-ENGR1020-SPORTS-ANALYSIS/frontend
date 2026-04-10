@@ -23,23 +23,22 @@ export function FinalResultsPage() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
 
   useEffect(() => {
-    let intervalId: any;
+    let intervalId: ReturnType<typeof setInterval>;
+    let initialLoadDone = false;
 
     const loadData = async () => {
       try {
-        const teamId = localStorage.getItem("currentTeamId");
+        const teamId = sessionStorage.getItem("currentTeamId");
         if (!teamId || !sessionCode) throw new Error("Missing info");
 
         const details = await getSessionDetails(sessionCode);
-        
-        // Find teams
+
         const myTeam = details.teams.find((t: any) => t.team_id === teamId);
         const oppTeam = details.teams.find((t: any) => t.team_id !== teamId);
 
         if (!myTeam) throw new Error("Team not found");
 
         if (details.session.target_team === 1) {
-          // Single player mode => Just show round 2 stats
           const myStats = await fetchTeamStatsAPI(teamId, 2);
           setResults({
             myTeam,
@@ -50,10 +49,10 @@ export function FinalResultsPage() {
           });
           setWaitingForOpponent(false);
           setLoading(false);
+          clearInterval(intervalId);
           return;
         }
 
-        // Multi player mode => wait for opponent's round 2 to finish
         if (oppTeam && oppTeam.round_2_finished) {
           const myStats = await fetchTeamStatsAPI(teamId, 2);
           const oppStats = await fetchTeamStatsAPI(oppTeam.team_id, 2);
@@ -71,16 +70,23 @@ export function FinalResultsPage() {
           });
           setWaitingForOpponent(false);
           setLoading(false);
-          if (intervalId) clearInterval(intervalId);
+          clearInterval(intervalId);
         } else {
           setWaitingForOpponent(true);
           setLoading(false);
         }
-
       } catch (err: any) {
-        if (intervalId) clearInterval(intervalId);
-        setError(err.message || "Failed to load final results");
-        setLoading(false);
+        if (!initialLoadDone) {
+          // Only surface errors to the UI on the first load attempt;
+          // transient poll failures are silently logged so polling continues.
+          setError(err.message || "Failed to load final results");
+          setLoading(false);
+          clearInterval(intervalId);
+        } else {
+          console.error("Polling final results failed:", err);
+        }
+      } finally {
+        initialLoadDone = true;
       }
     };
 

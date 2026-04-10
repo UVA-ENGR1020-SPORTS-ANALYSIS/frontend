@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, ShieldBan } from "lucide-react";
+import { Loader2, ShieldBan, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HalfCourt, type ZoneStat } from "@/components/HalfCourt";
 import { fetchOpponentStatsAPI, banOpponentZoneAPI } from "@/api/game";
@@ -17,11 +17,12 @@ export function BanZonePage() {
   
   const [opponentTeamId, setOpponentTeamId] = useState("");
   const [zoneStats, setZoneStats] = useState<Record<number, ZoneStat>>({});
+  const [pendingBanZone, setPendingBanZone] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const teamId = localStorage.getItem("currentTeamId");
+        const teamId = sessionStorage.getItem("currentTeamId");
         if (!teamId || !sessionCode) throw new Error("Missing info");
 
         const details = await getSessionDetails(sessionCode);
@@ -66,7 +67,7 @@ export function BanZonePage() {
     
     const interval = setInterval(async () => {
       try {
-        const teamId = localStorage.getItem("currentTeamId");
+        const teamId = sessionStorage.getItem("currentTeamId");
         const details = await getSessionDetails(sessionCode);
         const myTeam = details.teams.find((t: any) => t.team_id === teamId);
         if (myTeam && myTeam.banned_zone !== null) {
@@ -81,20 +82,22 @@ export function BanZonePage() {
     return () => clearInterval(interval);
   }, [waitingForOpponent, sessionCode, navigate]);
 
-  const handleZoneClick = async (zone: number) => {
+  const handleZoneClick = (zone: number) => {
     if (!opponentTeamId || banning) return;
-    
-    const conf = window.confirm(`Are you sure you want to ban zone ${zone}?`);
-    if (!conf) return;
+    setPendingBanZone(zone);
+  };
 
+  const handleConfirmBan = async () => {
+    if (pendingBanZone === null) return;
+    const zone = pendingBanZone;
+    setPendingBanZone(null);
     setBanning(true);
     try {
       await banOpponentZoneAPI({ opponent_team_id: opponentTeamId, zone });
-      // Transition to waiting for opponent to ban us
       setBanning(false);
       setWaitingForOpponent(true);
     } catch (err: any) {
-      alert("Failed to ban zone: " + err.message);
+      setError("Failed to ban zone: " + err.message);
       setBanning(false);
     }
   };
@@ -134,15 +137,46 @@ export function BanZonePage() {
 
       <div className="relative shrink-1 min-h-[300px] flex items-center justify-center scale-75 origin-center -my-10">
         <div className="border-[3px] border-red-500/40 rounded-xl p-2 bg-red-500/5 shadow-[0_0_30px_rgba(239,68,68,0.1)] transition-all duration-1000 ease-in-out">
-          <HalfCourt 
-            shots={[]} 
-            disabled={true} 
-            zoneStats={zoneStats} 
-            interactiveBanMode={true} 
-            onZoneClick={handleZoneClick} 
+          <HalfCourt
+            shots={[]}
+            disabled={true}
+            zoneStats={zoneStats}
+            interactiveBanMode={true}
+            onZoneClick={handleZoneClick}
           />
         </div>
       </div>
+
+      {/* Inline confirmation — replaces window.confirm */}
+      {pendingBanZone !== null && (
+        <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center pb-6 px-4 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="w-full max-w-sm rounded-2xl border-2 border-red-500/40 bg-card shadow-2xl p-5 flex flex-col gap-4">
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-bold text-base">
+                Ban <span className="text-red-500">Zone {pendingBanZone}</span> for the opponent?
+              </p>
+              <button
+                onClick={() => setPendingBanZone(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-0.5"
+                aria-label="Cancel"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground -mt-2">
+              This cannot be undone. The opponent will not be able to shoot from Zone {pendingBanZone} in Round 2.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setPendingBanZone(null)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" className="flex-1 bg-red-600 hover:bg-red-700 text-white" onClick={handleConfirmBan}>
+                Confirm Ban
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

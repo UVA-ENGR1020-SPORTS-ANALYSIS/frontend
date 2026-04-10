@@ -23,7 +23,7 @@ export function ResultsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const tId = localStorage.getItem("currentTeamId");
+        const tId = sessionStorage.getItem("currentTeamId");
         if (!tId || !sessionCode) throw new Error("Missing session or team info");
         setTeamId(tId);
 

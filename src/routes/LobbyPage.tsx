@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TeamCard } from "@/components/TeamCard";
@@ -17,7 +17,7 @@ export function LobbyPage() {
   const [isReadying, setIsReadying] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
 
-  const fetchSession = async () => {
+  const fetchSession = useCallback(async () => {
     if (!sessionCode) return;
     try {
       const details = await getSessionDetails(sessionCode);
@@ -28,20 +28,20 @@ export function LobbyPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionCode]);
 
   useEffect(() => {
     fetchSession();
     // Poll every 3 seconds to check for new teams and ready status
     const interval = setInterval(fetchSession, 3000);
     return () => clearInterval(interval);
-  }, [sessionCode]);
+  }, [fetchSession]);
 
   const session = data?.session;
   const teams = data?.teams || [];
   const numTeams = teams.length;
   const targetTeams = session?.target_team || 0;
-  const currentTeamId = localStorage.getItem("currentTeamId");
+  const currentTeamId = sessionStorage.getItem("currentTeamId");
   const isFilled = targetTeams > 0 && numTeams >= targetTeams;
   
   // Make sure ALL target teams have joined and ARE ready
