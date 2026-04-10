@@ -44,40 +44,7 @@ function getBadgeColor(percentage: number, attempts: number) {
 }
 
 // ── Zone detection ──
-
-function getZone(x: number, y: number): number {
-  // Court bounds: x in [30..460], y in [18..512]
-  // Zone 1: inside the key (rect 182..308, y 18..206)
-  if (x >= 182 && x <= 308 && y <= 206) return 1;
-
-  // Check if inside three-point arc
-  // The arc is centered at (245, 148) with radius 222 (approximately)
-  const arcCx = 245, arcCy = 148, arcR = 222;
-  const dist = Math.sqrt((x - arcCx) ** 2 + (y - arcCy) ** 2);
-  const insideArc = dist < arcR && y < 370;
-
-  if (insideArc) {
-    // Inside arc, left or right of key
-    if (x < 245) return 2; // upper-left
-    return 3; // upper-right
-  }
-
-  // Outside arc — use diagonal divider lines to split into zones 4, 5, 6
-  // Left diagonal: (182,306) → (30,512)
-  // Right diagonal: (308,306) → (460,512)
-  // Center vertical: x=245, y 206..315
-
-  // Left of center diagonal
-  const leftSlope = (512 - 306) / (30 - 182); // negative
-  const leftY = 306 + leftSlope * (x - 182);
-
-  const rightSlope = (512 - 306) / (460 - 308);
-  const rightY = 306 + rightSlope * (x - 308);
-
-  if (x < 182 || (x < 245 && y > leftY)) return 4; // lower-left
-  if (x > 308 || (x > 245 && y > rightY)) return 6; // lower-right
-  return 5; // lower-center
-}
+// Removed manual mathematical getZone. We now rely natively on SVG Polygons for pixel-perfect boundaries.
 
 // ── Component ──
 
@@ -119,13 +86,11 @@ export function HalfCourt({
     []
   );
 
-  const handleCourtClick = useCallback(
-    (e: React.MouseEvent) => {
+  const handleZoneInteraction = useCallback(
+    (e: React.MouseEvent, zone: number) => {
       e.stopPropagation();
       const pt = toSvgPoint(e.clientX, e.clientY);
       if (!pt) return;
-
-      const zone = getZone(pt.svgX, pt.svgY);
 
       if (interactiveBanMode && onZoneClick) {
         onZoneClick(zone);
@@ -250,6 +215,18 @@ export function HalfCourt({
               strokeWidth="0.5"
             />
           </pattern>
+
+          {/* Hitbox patterns and clips for Zones */}
+          <pattern id="bannedZonePattern" width="30" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="30" height="30" fill="rgba(239, 68, 68, 0.15)" />
+            <line x1="0" y1="0" x2="0" y2="30" stroke="rgba(239, 68, 68, 0.3)" strokeWidth="8" />
+          </pattern>
+          <clipPath id="insideArcClip">
+             <path d="M30,18 L460,18 L460,148 A222,222 0 0,1 30,148 Z" />
+          </clipPath>
+          <clipPath id="outsideArcClip">
+             <path d="M30,148 A222,222 0 0,0 460,148 L460,512 L30,512 Z" />
+          </clipPath>
         </defs>
 
         {/* Floor base */}
@@ -497,16 +474,29 @@ export function HalfCourt({
           {misses}
         </text>
 
-        {/* Invisible click target */}
-        <rect
-          x="30"
-          y="18"
-          width="430"
-          height="440"
-          fill="transparent"
-          style={{ cursor: interactiveBanMode ? "crosshair" : (disabled ? "default" : "crosshair") }}
-          onClick={handleCourtClick}
-        />
+        {/* Zone interaction layers (perfectly matching visual lines via specific polygon clipping) */}
+        {[
+          { z: 1, type: "rect", x: 182, y: 18, width: 126, height: 188, clip: undefined },
+          { z: 2, type: "polygon", points: "30,18 182,18 182,206 245,206 245,380 30,380", clip: "url(#insideArcClip)" },
+          { z: 3, type: "polygon", points: "460,18 308,18 308,206 245,206 245,380 460,380", clip: "url(#insideArcClip)" },
+          { z: 4, type: "polygon", points: "30,148 182,306 30,512", clip: "url(#outsideArcClip)" },
+          { z: 5, type: "polygon", points: "182,306 308,306 460,512 30,512", clip: "url(#outsideArcClip)" },
+          { z: 6, type: "polygon", points: "460,148 308,306 460,512", clip: "url(#outsideArcClip)" },
+        ].map(({ z, type, points, x, y, width, height, clip }) => {
+          const isBanned = bannedZone === z;
+          
+          const fill = isBanned ? "url(#bannedZonePattern)" : "transparent";
+          const classes = isBanned ? "animate-pulse stroke-red-500 stroke-2" : "";
+          const cursor = isBanned ? "not-allowed" : (interactiveBanMode ? "crosshair" : (disabled ? "default" : "crosshair"));
+          
+          const clickHandler = (e: React.MouseEvent) => handleZoneInteraction(e, z);
+
+          return type === "rect" ? (
+             <rect key={z} x={x} y={y} width={width} height={height} fill={fill} clipPath={clip} className={classes} style={{cursor}} onClick={clickHandler} />
+          ) : (
+             <polygon key={z} points={points} fill={fill} clipPath={clip} className={classes} style={{cursor}} onClick={clickHandler} />
+          );
+        })}
 
         {/* ── Heatmap Overlay ── */}
         {zoneStats &&
