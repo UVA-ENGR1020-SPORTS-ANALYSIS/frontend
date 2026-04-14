@@ -21,7 +21,7 @@ describe("fetchOpponentStatsAPI", () => {
         status: 200,
         headers: { "Content-Type": "application/json" },
       })
-    );
+    ) as unknown as typeof fetch;
 
     const result = await fetchOpponentStatsAPI("session123", "team456");
     expect(result).toEqual(mockData);
@@ -40,7 +40,7 @@ describe("fetchOpponentStatsAPI", () => {
         status: 404,
         headers: { "Content-Type": "application/json" },
       })
-    );
+    ) as unknown as typeof fetch;
 
     expect(fetchOpponentStatsAPI("session123", "team456")).rejects.toThrow(
       "Opponent not found"
@@ -53,7 +53,7 @@ describe("fetchOpponentStatsAPI", () => {
         status: 500,
         headers: { "Content-Type": "text/plain" },
       })
-    );
+    ) as unknown as typeof fetch;
 
     expect(fetchOpponentStatsAPI("session123", "team456")).rejects.toThrow(
       "Failed to fetch opponent stats"
