@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, ArrowRight, Clock } from "lucide-react";
+import { Loader2, ArrowRight, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HalfCourt, type ZoneStat } from "@/components/HalfCourt";
 import { fetchTeamStatsAPI, fetchOpponentStatsAPI } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
+import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
 
 export function ResultsPage() {
   const { sessionCode } = useParams<{ sessionCode: string }>();
@@ -19,6 +20,7 @@ export function ResultsPage() {
   const [sessionId, setSessionId] = useState("");
   const [teamId, setTeamId] = useState("");
   const [opponentReady, setOpponentReady] = useState(false);
+  const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -54,6 +56,10 @@ export function ResultsPage() {
           }
         }
         setZoneStats(zStats);
+
+        // Fetch per-player stats
+        const { players } = await fetchTeamPlayers(tId);
+        setPlayerStats(players);
       } catch (err: any) {
         setError(err.message || "Failed to load stats");
       } finally {
@@ -118,6 +124,28 @@ export function ResultsPage() {
           Total Points
         </span>
       </div>
+
+      {/* Per-player breakdown */}
+      {playerStats.length > 0 && (
+        <div className="w-full max-w-sm z-10">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 text-center">Player Breakdown</h2>
+          <div className="space-y-1.5">
+            {playerStats.map((p) => (
+              <div key={p.player_id} className="flex justify-between items-center px-3 py-2 rounded-xl bg-card border transition-colors hover:bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <User className="size-3.5 text-muted-foreground" />
+                  <span className="font-semibold text-sm">{p.player_name}</span>
+                </div>
+                <div className="flex gap-3 text-xs text-muted-foreground font-medium">
+                  <span className="text-primary font-bold">{p.total_points} pts</span>
+                  <span>{p.total_makes}/{p.total_attempts}</span>
+                  <span>{p.shooting_pct}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="h-14 flex items-center justify-center shrink-0 z-10 mt-2">
         {targetTeam === 1 ? (

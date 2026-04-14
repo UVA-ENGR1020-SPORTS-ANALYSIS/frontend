@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, Trophy, ArrowRight, Minus } from "lucide-react";
+import { Loader2, Trophy, ArrowRight, Minus, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchTeamStatsAPI } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
+import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
 
 export function FinalResultsPage() {
   const { sessionCode } = useParams<{ sessionCode: string }>();
@@ -21,6 +22,7 @@ export function FinalResultsPage() {
   } | null>(null);
 
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
+  const [myPlayerStats, setMyPlayerStats] = useState<PlayerStats[]>([]);
 
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval>;
@@ -50,6 +52,10 @@ export function FinalResultsPage() {
           setWaitingForOpponent(false);
           setLoading(false);
           clearInterval(intervalId);
+
+          // Fetch per-player stats for my team
+          const { players } = await fetchTeamPlayers(teamId);
+          setMyPlayerStats(players);
           return;
         }
 
@@ -71,6 +77,10 @@ export function FinalResultsPage() {
           setWaitingForOpponent(false);
           setLoading(false);
           clearInterval(intervalId);
+
+          // Fetch per-player stats for my team
+          const { players } = await fetchTeamPlayers(teamId);
+          setMyPlayerStats(players);
         } else {
           setWaitingForOpponent(true);
           setLoading(false);
@@ -180,6 +190,28 @@ export function FinalResultsPage() {
         Back to Home
         <ArrowRight className="size-4" />
       </Button>
+
+      {/* Per-player breakdown */}
+      {myPlayerStats.length > 0 && (
+        <div className="w-full max-w-sm">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 text-center">Your Players</h2>
+          <div className="space-y-1.5">
+            {myPlayerStats.map((p) => (
+              <div key={p.player_id} className="flex justify-between items-center px-3 py-2 rounded-xl bg-card border transition-colors hover:bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <User className="size-3.5 text-muted-foreground" />
+                  <span className="font-semibold text-sm">{p.player_name}</span>
+                </div>
+                <div className="flex gap-3 text-xs text-muted-foreground font-medium">
+                  <span className="text-primary font-bold">{p.total_points} pts</span>
+                  <span>{p.total_makes}/{p.total_attempts}</span>
+                  <span>{p.shooting_pct}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
