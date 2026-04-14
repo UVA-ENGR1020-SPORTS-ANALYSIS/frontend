@@ -42,10 +42,10 @@ export async function submitShotAPI(data: SubmitShotRequest): Promise<SubmitShot
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
+    const errorData: any = await response.json().catch(() => null);
     throw new Error(errorData?.detail || "Failed to submit shot");
   }
-  return response.json();
+  return response.json() as any;
 }
 
 export async function finishRoundAPI(data: FinishRoundRequest): Promise<{ status: string; message: string }> {
@@ -55,28 +55,28 @@ export async function finishRoundAPI(data: FinishRoundRequest): Promise<{ status
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
+    const errorData: any = await response.json().catch(() => null);
     throw new Error(errorData?.detail || "Failed to finish round");
   }
-  return response.json();
+  return response.json() as any;
 }
 
 export async function fetchOpponentStatsAPI(sessionId: string, myTeamId: string) {
   const response = await apiFetch(`${BASE_URL}/api/game/opponent_stats/${sessionId}/${myTeamId}`);
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
+    const errorData: any = await response.json().catch(() => null);
     throw new Error(errorData?.detail || "Failed to fetch opponent stats");
   }
-  return response.json();
+  return response.json() as any;
 }
 
 export async function fetchTeamStatsAPI(teamId: string, roundNumber: number) {
   const response = await apiFetch(`${BASE_URL}/api/game/team_stats/${teamId}/${roundNumber}`);
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
+    const errorData: any = await response.json().catch(() => null);
     throw new Error(errorData?.detail || "Failed to fetch team stats");
   }
-  return response.json();
+  return response.json() as any;
 }
 
 export async function banOpponentZoneAPI(data: BanZoneRequest) {
@@ -86,8 +86,8 @@ export async function banOpponentZoneAPI(data: BanZoneRequest) {
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
+    const errorData: any = await response.json().catch(() => null);
     throw new Error(errorData?.detail || "Failed to ban zone");
   }
-  return response.json();
+  return response.json() as any;
 }
