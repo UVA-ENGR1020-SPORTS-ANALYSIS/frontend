@@ -10,7 +10,7 @@ describe("finishRoundAPI", () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
-    global.fetch = mock();
+    global.fetch = mock() as any;
   });
 
   afterEach(() => {
