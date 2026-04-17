@@ -146,7 +146,9 @@ export function ResultsPage() {
           </div>
         </div>
       )}
-
+      <Button variant="outline" onClick={() => navigate(`/session/${sessionCode}/stats`)}>
+        View Stats
+      </Button>
       <div className="h-14 flex items-center justify-center shrink-0 z-10 mt-2">
         {targetTeam === 1 ? (
           <div className="p-4 bg-green-500/10 text-green-600 font-bold rounded-lg border border-green-500/20">
