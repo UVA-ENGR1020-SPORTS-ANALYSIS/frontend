@@ -11,6 +11,7 @@ import BanZonePage from "./routes/BanZonePage.tsx";
 import FinalResultsPage from "./routes/FinalResultsPage.tsx";
 import NotFoundPage from "./routes/NotFoundPage.tsx";
 import ErrorPage from "./routes/ErrorPage.tsx";
+import StatsPage from "./routes/StatsPage.tsx";
 
 export const router = createBrowserRouter([
   {
@@ -25,6 +26,10 @@ export const router = createBrowserRouter([
       {
         path: "join/code",
         element: <JoinCodePage />,
+      },
+      {
+        path: "session/:sessionCode/stats",
+        element: <StatsPage />,
       },
       {
         path: "create/teams",
