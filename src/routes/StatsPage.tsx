@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
@@ -17,7 +17,6 @@ function pctColor(pct: number | null): string {
 }
 
 export function StatsPage() {
-  const { sessionCode } = useParams<{ sessionCode: string }>();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
