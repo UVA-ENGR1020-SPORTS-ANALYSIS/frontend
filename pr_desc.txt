@@ -1,0 +1,11 @@
+🎯 **What:** The testing gap addressed
+Added missing tests for the `fetchTeamStatsAPI` function in `src/api/game.ts`.
+
+📊 **Coverage:** What scenarios are now tested
+- Successful data fetch with a mocked ok response.
+- Error path: Non-ok response with detail message provided.
+- Error path: Non-ok response without detail message.
+- Error path: Non-ok response with invalid JSON payload.
+
+✨ **Result:** The improvement in test coverage
+The `fetchTeamStatsAPI` function is now fully covered, mirroring the test patterns of other API functions like `finishRoundAPI` and `fetchPlayerStats`. This increases reliability when refactoring API integration logic.
