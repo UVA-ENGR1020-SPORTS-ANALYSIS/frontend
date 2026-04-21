@@ -10,16 +10,18 @@ type TeamCount = 1 | 2 | 4;
 export function CreateTeamsPage() {
   const navigate = useNavigate();
   const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState("");
 
   const handleTeamSelect = async (count: TeamCount) => {
     try {
       setIsCreating(true);
+      setError("");
       const res = await createSession({ team_count: count });
       
       // Navigate host to name-entry to register their own playing team
       navigate(`/join/members?code=${res.session_code}`);
-    } catch (err) {
-      console.error("Failed to create session:", err);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create session");
     } finally {
       setIsCreating(false);
     }
@@ -60,6 +62,11 @@ export function CreateTeamsPage() {
           {isCreating && (
             <p className="text-center text-sm text-muted-foreground mt-2">
               Creating session...
+            </p>
+          )}
+          {error && (
+            <p className="text-center text-sm font-medium text-destructive mt-2">
+              {error}
             </p>
           )}
         </CardContent>

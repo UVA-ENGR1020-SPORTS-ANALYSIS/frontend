@@ -46,6 +46,16 @@ function getBadgeColor(percentage: number, attempts: number) {
 // ── Zone detection ──
 // Removed manual mathematical getZone. We now rely natively on SVG Polygons for pixel-perfect boundaries.
 
+// ── Zone interaction layer definitions (extracted to avoid recreation on every render) ──
+const ZONE_INTERACTION_LAYERS = [
+  { z: 1, type: "rect" as const, x: 182, y: 18, width: 126, height: 188, clip: undefined, points: undefined },
+  { z: 2, type: "polygon" as const, points: "30,18 182,18 182,206 245,206 245,380 30,380", clip: "url(#insideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  { z: 3, type: "polygon" as const, points: "460,18 308,18 308,206 245,206 245,380 460,380", clip: "url(#insideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  { z: 4, type: "polygon" as const, points: "30,148 182,306 30,512", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  { z: 5, type: "polygon" as const, points: "182,306 308,306 460,512 30,512", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  { z: 6, type: "polygon" as const, points: "460,148 308,306 460,512", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+] as const;
+
 // ── Component ──
 
 export function HalfCourt({ 
@@ -148,8 +158,8 @@ export function HalfCourt({
 
   // Stats
   const makes = shots.filter((s) => s.made).length;
-  const misses = shots.filter((s) => !s.made).length;
   const attempts = shots.length;
+  const misses = attempts - makes;
 
   return (
     <div ref={wrapperRef} className="relative flex-shrink-0 select-none">
@@ -475,14 +485,7 @@ export function HalfCourt({
         </text>
 
         {/* Zone interaction layers (perfectly matching visual lines via specific polygon clipping) */}
-        {[
-          { z: 1, type: "rect", x: 182, y: 18, width: 126, height: 188, clip: undefined },
-          { z: 2, type: "polygon", points: "30,18 182,18 182,206 245,206 245,380 30,380", clip: "url(#insideArcClip)" },
-          { z: 3, type: "polygon", points: "460,18 308,18 308,206 245,206 245,380 460,380", clip: "url(#insideArcClip)" },
-          { z: 4, type: "polygon", points: "30,148 182,306 30,512", clip: "url(#outsideArcClip)" },
-          { z: 5, type: "polygon", points: "182,306 308,306 460,512 30,512", clip: "url(#outsideArcClip)" },
-          { z: 6, type: "polygon", points: "460,148 308,306 460,512", clip: "url(#outsideArcClip)" },
-        ].map(({ z, type, points, x, y, width, height, clip }) => {
+        {ZONE_INTERACTION_LAYERS.map(({ z, type, points, x, y, width, height, clip }) => {
           const isBanned = bannedZone === z;
           
           const fill = isBanned ? "url(#bannedZonePattern)" : "transparent";
