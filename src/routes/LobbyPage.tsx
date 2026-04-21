@@ -23,8 +23,8 @@ export function LobbyPage() {
       const details = await getSessionDetails(sessionCode);
       setData(details);
       setError("");
-    } catch (err: any) {
-      setError(err.message || "Failed to load lobby.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load lobby.");
     } finally {
       setLoading(false);
     }
@@ -91,8 +91,9 @@ export function LobbyPage() {
     try {
       await toggleTeamReady(currentTeamId, !isCurrentTeamReady);
       await fetchSession(); // Immediately update UI
-    } catch (err) {
-      console.error("Failed to toggle ready:", err);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to toggle ready";
+      setError(message);
     } finally {
       setIsReadying(false);
     }
