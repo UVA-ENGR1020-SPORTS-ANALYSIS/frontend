@@ -1,5 +1,15 @@
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
-import { joinTeam } from "./sessions";
+import { createSession, getSessionDetails, joinTeam, toggleTeamReady, validateSessionCode } from "./sessions";
+
+const originalFetch = global.fetch;
+
+beforeEach(() => {
+  global.fetch = mock() as any;
+});
+
+afterEach(() => {
+  global.fetch = originalFetch;
+});
 
 describe("joinTeam", () => {
   const mockData = {
@@ -7,16 +17,6 @@ describe("joinTeam", () => {
     session_id: "session_1",
     session_code: 1234,
   };
-
-  const originalFetch = global.fetch;
-
-  beforeEach(() => {
-    global.fetch = mock() as any;
-  });
-
-  afterEach(() => {
-    global.fetch = originalFetch;
-  });
 
   it("should successfully join a team and return data", async () => {
     const mockResponse = { status: "success", team_id: "team_1", players: [], message: "Joined" };
@@ -35,6 +35,7 @@ describe("joinTeam", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mockData),
+        signal: expect.any(AbortSignal),
       })
     );
   });
@@ -65,5 +66,255 @@ describe("joinTeam", () => {
     });
 
     await expect(joinTeam(mockData)).rejects.toThrow("Failed to join team");
+  });
+});
+
+describe("validateSessionCode", () => {
+  const sessionCode = "123456";
+
+  it("should successfully validate a session code and return data", async () => {
+    const mockResponse = {
+      status: "valid",
+      session_code: 123456,
+      session_id: "session_1",
+      current_teams_count: 1,
+      message: "Room is ready. Please enter your team's players.",
+    };
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockResponse),
+    });
+
+    const result = await validateSessionCode(sessionCode);
+
+    expect(result).toEqual(mockResponse);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining(`/api/connect/${sessionCode}`),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it("should throw an error with detail message on non-ok response", async () => {
+    const errorDetail = "Room is already full.";
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ detail: errorDetail }),
+    });
+
+    await expect(validateSessionCode(sessionCode)).rejects.toThrow(errorDetail);
+  });
+
+  it("should throw a default error on non-ok response without detail", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ someOtherField: "error" }),
+    });
+
+    await expect(validateSessionCode(sessionCode)).rejects.toThrow("Session not found");
+  });
+
+  it("should throw a default error when response is not ok and json parsing fails", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.reject(new Error("Invalid JSON")),
+    });
+
+    await expect(validateSessionCode(sessionCode)).rejects.toThrow("Session not found");
+  });
+});
+
+describe("createSession", () => {
+  const mockData = {
+    creator_name: "Coach",
+    admin_password: "secret",
+    team_count: 4,
+  };
+
+  it("should successfully create a session with an explicit payload", async () => {
+    const mockResponse = { session_code: 654321, session_id: "session_2" };
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockResponse),
+    });
+
+    const result = await createSession(mockData);
+
+    expect(result).toEqual(mockResponse);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/sessions"),
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mockData),
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it("should successfully create a session with the default payload", async () => {
+    const mockResponse = { session_code: 111111, session_id: "session_3" };
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockResponse),
+    });
+
+    const result = await createSession();
+
+    expect(result).toEqual(mockResponse);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/sessions"),
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it("should throw an error with detail message on non-ok response", async () => {
+    const errorDetail = "Could not generate a unique session code. Try again.";
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ detail: errorDetail }),
+    });
+
+    await expect(createSession(mockData)).rejects.toThrow(errorDetail);
+  });
+
+  it("should throw a default error on non-ok response without detail", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ someOtherField: "error" }),
+    });
+
+    await expect(createSession(mockData)).rejects.toThrow("Failed to create session");
+  });
+
+  it("should throw a default error when response is not ok and json parsing fails", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.reject(new Error("Invalid JSON")),
+    });
+
+    await expect(createSession(mockData)).rejects.toThrow("Failed to create session");
+  });
+});
+
+describe("getSessionDetails", () => {
+  const sessionCode = "123456";
+
+  it("should successfully fetch session details and return data", async () => {
+    const mockResponse = {
+      session: {
+        session_id: "session_1",
+        session_code: 123456,
+        target_team: 2,
+        status: "waiting",
+      },
+      teams: [{ team_id: "team_1", player: [{ player_name: "Alice" }] }],
+    };
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockResponse),
+    });
+
+    const result = await getSessionDetails(sessionCode);
+
+    expect(result).toEqual(mockResponse);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining(`/api/sessions/${sessionCode}`),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it("should throw an error with detail message on non-ok response", async () => {
+    const errorDetail = "Session not found";
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ detail: errorDetail }),
+    });
+
+    await expect(getSessionDetails(sessionCode)).rejects.toThrow(errorDetail);
+  });
+
+  it("should throw a default error on non-ok response without detail", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ someOtherField: "error" }),
+    });
+
+    await expect(getSessionDetails(sessionCode)).rejects.toThrow("Failed to fetch session metadata");
+  });
+
+  it("should throw a default error when response is not ok and json parsing fails", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.reject(new Error("Invalid JSON")),
+    });
+
+    await expect(getSessionDetails(sessionCode)).rejects.toThrow("Failed to fetch session metadata");
+  });
+});
+
+describe("toggleTeamReady", () => {
+  const teamId = "team_1";
+
+  it("should successfully toggle team ready status and return data", async () => {
+    const mockResponse = { status: "success", is_ready: true };
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockResponse),
+    });
+
+    const result = await toggleTeamReady(teamId, true);
+
+    expect(result).toEqual(mockResponse);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining(`/api/connect/${teamId}/ready`),
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_ready: true }),
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it("should throw an error with detail message on non-ok response", async () => {
+    const errorDetail = "Team not found or could not update status.";
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ detail: errorDetail }),
+    });
+
+    await expect(toggleTeamReady(teamId, true)).rejects.toThrow(errorDetail);
+  });
+
+  it("should throw a default error on non-ok response without detail", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ someOtherField: "error" }),
+    });
+
+    await expect(toggleTeamReady(teamId, true)).rejects.toThrow("Failed to update ready status");
+  });
+
+  it("should throw a default error when response is not ok and json parsing fails", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.reject(new Error("Invalid JSON")),
+    });
+
+    await expect(toggleTeamReady(teamId, true)).rejects.toThrow("Failed to update ready status");
   });
 });
