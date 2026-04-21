@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, Trophy, ArrowRight, Minus, User } from "lucide-react";
+import { Loader2, Trophy, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ResultsScoreCard } from "@/components/ResultsScoreCard";
+import { PlayerStatsList } from "@/components/PlayerStatsList";
 import { fetchTeamStatsAPI } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
 import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
@@ -148,71 +150,23 @@ export function FinalResultsPage() {
         <p className="text-sm text-muted-foreground">Round 2 Showdown</p>
       </div>
 
-      <div className="w-full max-w-sm flex flex-col gap-6 p-6 rounded-2xl bg-card border-2 shadow-xl ring-1 ring-black/5 items-center">
-        {results?.winner === 'me' && (
-          <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-4 py-2 rounded-full font-black animate-in zoom-in duration-500">
-            <Trophy className="size-5" />
-            <span>VICTORY!</span>
-          </div>
-        )}
-        {results?.winner === 'opponent' && (
-          <div className="flex items-center gap-2 text-red-500 bg-red-500/10 px-4 py-2 rounded-full font-black animate-in zoom-in duration-500">
-            <Minus className="size-5" />
-            <span>DEFEAT</span>
-          </div>
-        )}
-        {results?.winner === 'tie' && (
-          <div className="flex items-center gap-2 text-yellow-500 bg-yellow-500/10 px-4 py-2 rounded-full font-black animate-in zoom-in duration-500">
-            <Minus className="size-5" />
-            <span>DRAW</span>
-          </div>
-        )}
-
-        <div className="w-full flex justify-between items-center px-4">
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-sm font-bold text-muted-foreground">YOU</span>
-            <span className={`text-6xl font-black ${results?.winner === 'me' ? 'text-green-500' : 'text-foreground'}`}>
-              {results?.myPoints}
-            </span>
-          </div>
-
-          <div className="text-muted-foreground opacity-50 font-black text-2xl">VS</div>
-
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-sm font-bold text-muted-foreground">OPP</span>
-            <span className={`text-6xl font-black ${results?.winner === 'opponent' ? 'text-red-500' : 'text-foreground'}`}>
-              {results?.oppPoints ?? 0}
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* Extracted score card */}
+      {results && (
+        <ResultsScoreCard
+          myPoints={results.myPoints}
+          oppPoints={results.oppPoints}
+          winner={results.winner}
+          hasOpponent={results.opponentTeam !== null}
+        />
+      )}
 
       <Button size="lg" className="mt-4 gap-2" onClick={() => navigate("/")}>
         Back to Home
         <ArrowRight className="size-4" />
       </Button>
 
-      {/* Per-player breakdown */}
-      {myPlayerStats.length > 0 && (
-        <div className="w-full max-w-sm">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 text-center">Your Players</h2>
-          <div className="space-y-1.5">
-            {myPlayerStats.map((p) => (
-              <div key={p.player_id} className="flex justify-between items-center px-3 py-2 rounded-xl bg-card border transition-colors hover:bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <User className="size-3.5 text-muted-foreground" />
-                  <span className="font-semibold text-sm">{p.player_name}</span>
-                </div>
-                <div className="flex gap-3 text-xs text-muted-foreground font-medium">
-                  <span className="text-primary font-bold">{p.total_points} pts</span>
-                  <span>{p.total_makes}/{p.total_attempts}</span>
-                  <span>{p.shooting_pct}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Extracted player stats list */}
+      <PlayerStatsList players={myPlayerStats} />
     </div>
   );
 }

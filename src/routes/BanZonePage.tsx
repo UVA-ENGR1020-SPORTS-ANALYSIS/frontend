@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, ShieldBan, X } from "lucide-react";
+import { Loader2, ShieldBan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HalfCourt, type ZoneStat } from "@/components/HalfCourt";
+import { BanConfirmationModal } from "@/components/BanConfirmationModal";
+import { useOpponentBanPoll } from "@/hooks/useOpponentBanPoll";
 import { fetchOpponentStatsAPI, banOpponentZoneAPI } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
 
@@ -19,6 +21,9 @@ export function BanZonePage() {
   const [zoneStats, setZoneStats] = useState<Record<number, ZoneStat>>({});
   const [pendingBanZone, setPendingBanZone] = useState<number | null>(null);
 
+  // Polling hook — replaces the inline useEffect
+  useOpponentBanPoll(sessionCode, waitingForOpponent);
+
   useEffect(() => {
     (async () => {
       try {
@@ -34,6 +39,7 @@ export function BanZonePage() {
 
         setOpponentTeamId(opponent_team_id);
 
+        // Build zone stats in a single pass
         const zStats: Record<number, ZoneStat> = {};
         for (let i = 1; i <= 6; i++) {
           zStats[i] = { makes: 0, attempts: 0, percentage: 0 };
@@ -60,27 +66,6 @@ export function BanZonePage() {
       }
     })();
   }, [sessionCode]);
-
-  // Poll for opponent's ban
-  useEffect(() => {
-    if (!waitingForOpponent || !sessionCode) return;
-    
-    const interval = setInterval(async () => {
-      try {
-        const teamId = sessionStorage.getItem("currentTeamId");
-        const details = await getSessionDetails(sessionCode);
-        const myTeam = details.teams.find((t: any) => t.team_id === teamId);
-        if (myTeam && myTeam.banned_zone !== null) {
-          clearInterval(interval);
-          navigate(`/session/${sessionCode}/game`);
-        }
-      } catch (err) {
-        console.error("Failed checking if opponent banned us:", err);
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [waitingForOpponent, sessionCode, navigate]);
 
   const handleZoneClick = (zone: number) => {
     if (!opponentTeamId || banning) return;
@@ -147,35 +132,13 @@ export function BanZonePage() {
         </div>
       </div>
 
-      {/* Inline confirmation — replaces window.confirm */}
+      {/* Inline confirmation */}
       {pendingBanZone !== null && (
-        <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center pb-6 px-4 animate-in slide-in-from-bottom-4 duration-200">
-          <div className="w-full max-w-sm rounded-2xl border-2 border-red-500/40 bg-card shadow-2xl p-5 flex flex-col gap-4">
-            <div className="flex items-start justify-between gap-2">
-              <p className="font-bold text-base">
-                Ban <span className="text-red-500">Zone {pendingBanZone}</span> for the opponent?
-              </p>
-              <button
-                onClick={() => setPendingBanZone(null)}
-                className="text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-0.5"
-                aria-label="Cancel"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-            <p className="text-sm text-muted-foreground -mt-2">
-              This cannot be undone. The opponent will not be able to shoot from Zone {pendingBanZone} in Round 2.
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setPendingBanZone(null)}>
-                Cancel
-              </Button>
-              <Button variant="destructive" className="flex-1 bg-red-600 hover:bg-red-700 text-white" onClick={handleConfirmBan}>
-                Confirm Ban
-              </Button>
-            </div>
-          </div>
-        </div>
+        <BanConfirmationModal
+          zone={pendingBanZone}
+          onConfirm={handleConfirmBan}
+          onCancel={() => setPendingBanZone(null)}
+        />
       )}
     </div>
   );

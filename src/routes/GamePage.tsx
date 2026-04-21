@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, RotateCcw, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HalfCourt, type ShotDot } from "@/components/HalfCourt";
+import { PlayerPanel } from "@/components/PlayerPanel";
 import { getSessionDetails } from "@/api/sessions";
 import { submitShotAPI, finishRoundAPI } from "@/api/game";
 
@@ -246,44 +247,14 @@ export function GamePage() {
         </div>
       </div>
 
-      {/* Player panel */}
-      <div className="flex gap-3 flex-wrap justify-center">
-        {players.map((player, i) => {
-          const count = shotCounts[player.player_id] || 0;
-          const isActive = i === activePlayerIndex;
-          const isDone = count >= SHOTS_PER_PLAYER;
-
-          return (
-            <button
-              key={player.player_id}
-              onClick={() => handlePlayerClick(i)}
-              className={`
-                px-4 py-3 rounded-xl text-sm font-semibold
-                transition-all duration-200 min-w-[120px]
-                border-2 cursor-pointer
-                ${
-                  isActive
-                    ? "bg-red-700 border-red-500 text-white font-extrabold shadow-[0_0_16px_rgba(210,30,30,0.65)]"
-                    : isDone
-                    ? "bg-green-900/20 border-green-700/40 text-green-400 opacity-60"
-                    : "bg-sky-400/80 border-sky-500 text-sky-950 hover:bg-sky-300"
-                }
-              `}
-            >
-              <div>{player.player_name}</div>
-              <div className="text-xs mt-0.5 opacity-80">
-                {isDone ? (
-                  <span className="flex items-center justify-center gap-1">
-                    <Trophy className="size-3" /> Done
-                  </span>
-                ) : (
-                  `${count} / ${SHOTS_PER_PLAYER}`
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      {/* Player panel — extracted component */}
+      <PlayerPanel
+        players={players}
+        activePlayerIndex={activePlayerIndex}
+        shotCounts={shotCounts}
+        shotsPerPlayer={SHOTS_PER_PLAYER}
+        onPlayerClick={handlePlayerClick}
+      />
 
       {/* Action buttons */}
       <div className="flex gap-3 items-center">

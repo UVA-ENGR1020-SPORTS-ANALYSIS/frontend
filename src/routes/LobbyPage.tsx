@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { TeamCard } from "@/components/TeamCard";
 import { Users, LogOut, Play, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LobbyTeamList } from "@/components/LobbyTeamList";
 import { getSessionDetails, toggleTeamReady, type GetSessionDetailsResponse } from "@/api/sessions";
 
 export function LobbyPage() {
@@ -98,11 +98,6 @@ export function LobbyPage() {
     }
   };
 
-  const gridClasses = 
-    targetTeams === 1 ? "grid-cols-1" :
-    targetTeams === 2 ? "grid-cols-2" :
-    "grid-cols-2"; 
-
   const formattedTeams = teams.map((t, idx) => ({
     teamNumber: idx + 1,
     teamId: t.team_id,
@@ -135,24 +130,12 @@ export function LobbyPage() {
             </span>
           </div>
           
-          {numTeams === 0 ? (
-            <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-              Waiting for teams to join...
-            </div>
-          ) : (
-            <div className={`grid gap-3 ${gridClasses}`}>
-              {formattedTeams.map((team) => (
-                <TeamCard
-                  key={team.teamNumber}
-                  teamNumber={team.teamNumber}
-                  players={team.players}
-                  isHighlighted={team.teamId === currentTeamId}
-                  isReady={team.isReady}
-                  className="hover:scale-[1.02] transition-transform duration-300"
-                />
-              ))}
-            </div>
-          )}
+          {/* Extracted team list component */}
+          <LobbyTeamList
+            teams={formattedTeams}
+            currentTeamId={currentTeamId}
+            targetTeams={targetTeams}
+          />
         </div>
 
         <div className="flex flex-col gap-3 pt-4">
