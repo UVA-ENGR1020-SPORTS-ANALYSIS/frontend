@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, ArrowRight, Clock, User } from "lucide-react";
+import { Loader2, ArrowRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HalfCourt, type ZoneStat } from "@/components/HalfCourt";
+import { PlayerStatsList } from "@/components/PlayerStatsList";
 import { fetchTeamStatsAPI, fetchOpponentStatsAPI } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
 import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
@@ -37,24 +38,17 @@ export function ResultsPage() {
         const stats = await fetchTeamStatsAPI(tId, 1);
         setTotalPoints(stats.points);
 
-        const zStats: Record<number, ZoneStat> = {};
-        for (let i = 1; i <= 6; i++) {
-          zStats[i] = { makes: 0, attempts: 0, percentage: 0 };
-        }
-
-        stats.raw_shots.forEach((s: any) => {
+        // Build zone stats in a single pass
+        const zStats = stats.raw_shots.reduce((acc: Record<number, ZoneStat>, s: any) => {
           const z = s.zone;
-          if (zStats[z]) {
-            zStats[z].attempts += 1;
-            if (s.shot_made) zStats[z].makes += 1;
-          }
-        });
-
-        for (let i = 1; i <= 6; i++) {
-          if (zStats[i].attempts > 0) {
-            zStats[i].percentage = (zStats[i].makes / zStats[i].attempts) * 100;
-          }
-        }
+          if (!acc[z]) acc[z] = { makes: 0, attempts: 0, percentage: 0 };
+          acc[z].attempts += 1;
+          if (s.shot_made) acc[z].makes += 1;
+          acc[z].percentage = (acc[z].makes / acc[z].attempts) * 100;
+          return acc;
+        }, Object.fromEntries(
+          Array.from({ length: 6 }, (_, i) => [i + 1, { makes: 0, attempts: 0, percentage: 0 }])
+        ) as Record<number, ZoneStat>);
         setZoneStats(zStats);
 
         // Fetch per-player stats
@@ -125,27 +119,10 @@ export function ResultsPage() {
         </span>
       </div>
 
-      {/* Per-player breakdown */}
-      {playerStats.length > 0 && (
-        <div className="w-full max-w-sm z-10">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 text-center">Player Breakdown</h2>
-          <div className="space-y-1.5">
-            {playerStats.map((p) => (
-              <div key={p.player_id} className="flex justify-between items-center px-3 py-2 rounded-xl bg-card border transition-colors hover:bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <User className="size-3.5 text-muted-foreground" />
-                  <span className="font-semibold text-sm">{p.player_name}</span>
-                </div>
-                <div className="flex gap-3 text-xs text-muted-foreground font-medium">
-                  <span className="text-primary font-bold">{p.total_points} pts</span>
-                  <span>{p.total_makes}/{p.total_attempts}</span>
-                  <span>{p.shooting_pct}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Per-player breakdown — extracted component */}
+      <div className="z-10">
+        <PlayerStatsList players={playerStats} />
+      </div>
       <Button variant="outline" onClick={() => navigate(`/session/${sessionCode}/stats`)}>
         View Stats
       </Button>
