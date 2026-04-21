@@ -1,5 +1,6 @@
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
-import { fetchPlayerStats, fetchTeamPlayers, PlayerStats } from "./players";
+import { fetchPlayerStats, fetchTeamPlayers } from "./players";
+import type { PlayerStats } from "./players";
 
 describe("fetchPlayerStats", () => {
   const originalFetch = global.fetch;
