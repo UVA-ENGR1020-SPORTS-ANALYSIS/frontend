@@ -25,7 +25,7 @@ export function GamePage() {
 
   // Session data
   const [sessionId, setSessionId] = useState("");
-  const [teamId, setTeamId] = useState("");
+  const [teamId] = useState(() => sessionStorage.getItem("currentTeamId") || "");
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [phase, setPhase] = useState<GamePhase>("loading");
   const [error, setError] = useState("");
@@ -48,7 +48,6 @@ export function GamePage() {
     if (!sessionCode) return;
 
     const currentTeamId = sessionStorage.getItem("currentTeamId") || "";
-    setTeamId(currentTeamId);
 
     (async () => {
       try {
@@ -90,7 +89,7 @@ export function GamePage() {
         setError(err.message || "Failed to load game data");
       }
     })();
-  }, [sessionCode]);
+  }, [sessionCode, navigate]);
 
   // ── Active player ──
   const activePlayer = players[activePlayerIndex] || null;

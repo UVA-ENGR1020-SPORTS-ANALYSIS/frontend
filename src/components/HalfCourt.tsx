@@ -538,6 +538,7 @@ export function HalfCourt({
         <div
           className="absolute flex gap-2.5 items-center z-30 pointer-events-auto"
           style={{
+            // eslint-disable-next-line react-hooks/refs
             left: `${Math.max(30, Math.min(pending.screenX, (wrapperRef.current?.clientWidth ?? 490) - 30))}px`,
             top: `${Math.max(60, pending.screenY)}px`,
             transform: "translate(-50%, -115%)",

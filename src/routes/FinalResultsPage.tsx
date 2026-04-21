@@ -25,6 +25,7 @@ export function FinalResultsPage() {
   const [myPlayerStats, setMyPlayerStats] = useState<PlayerStats[]>([]);
 
   useEffect(() => {
+    // eslint-disable-next-line prefer-const
     let intervalId: ReturnType<typeof setInterval>;
     let initialLoadDone = false;
 
