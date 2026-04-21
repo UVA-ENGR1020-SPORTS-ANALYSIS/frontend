@@ -66,6 +66,21 @@ describe("fetchPlayerStats", () => {
 
     await expect(fetchPlayerStats(mockPlayerId)).rejects.toThrow("Failed to fetch player stats");
   });
+
+  it("should throw an error on network failure", async () => {
+    (global.fetch as any).mockRejectedValue(new Error("Network connection failed"));
+
+    await expect(fetchPlayerStats(mockPlayerId)).rejects.toThrow("Network connection failed");
+  });
+
+  it("should throw an error when successful response json parsing fails", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.reject(new Error("Invalid JSON")),
+    });
+
+    await expect(fetchPlayerStats(mockPlayerId)).rejects.toThrow("Invalid JSON");
+  });
 });
 
 describe("fetchTeamPlayers", () => {
@@ -136,5 +151,20 @@ describe("fetchTeamPlayers", () => {
     });
 
     await expect(fetchTeamPlayers(mockTeamId)).rejects.toThrow("Failed to fetch team players");
+  });
+
+  it("should throw an error on network failure", async () => {
+    (global.fetch as any).mockRejectedValue(new Error("Network connection failed"));
+
+    await expect(fetchTeamPlayers(mockTeamId)).rejects.toThrow("Network connection failed");
+  });
+
+  it("should throw an error when successful response json parsing fails", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.reject(new Error("Invalid JSON")),
+    });
+
+    await expect(fetchTeamPlayers(mockTeamId)).rejects.toThrow("Invalid JSON");
   });
 });
