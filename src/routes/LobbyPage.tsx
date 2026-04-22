@@ -103,7 +103,7 @@ export function LobbyPage() {
     teamNumber: idx + 1,
     teamId: t.team_id,
     isReady: t.is_ready,
-    players: (t.player || []).map((p: any) => p.player_name || p.name)
+    players: (t.player || []).map((p) => p.player_name)
   }));
 
   return (

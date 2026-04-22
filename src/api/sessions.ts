@@ -25,10 +25,24 @@ export interface JoinTeamRequest {
   team_count?: number;
 }
 
+export interface TeamPlayer {
+  player_id: string;
+  player_name: string;
+}
+
+export interface Team {
+  team_id: string;
+  is_ready: boolean;
+  player: TeamPlayer[];
+  round_1_finished: boolean;
+  round_2_finished: boolean;
+  banned_zone: number | null;
+}
+
 export interface JoinTeamResponse {
   status: string;
   team_id: string;
-  players: any[];
+  players: TeamPlayer[];
   message: string;
 }
 
@@ -95,7 +109,7 @@ export interface GetSessionDetailsResponse {
     target_team: number;
     status: string;
   };
-  teams: any[];
+  teams: Team[];
 }
 
 export async function getSessionDetails(sessionCode: string): Promise<GetSessionDetailsResponse> {

@@ -57,7 +57,7 @@ export function GamePage() {
 
         // Find our team's players
         const ourTeam = details.teams.find(
-          (t: any) => t.team_id === currentTeamId
+          (t) => t.team_id === currentTeamId
         );
         if (ourTeam) {
           if (ourTeam.round_2_finished) {
@@ -72,7 +72,7 @@ export function GamePage() {
           
           if (ourTeam.player) {
             setPlayers(
-              ourTeam.player.map((p: any) => ({
+              ourTeam.player.map((p) => ({
                 player_id: p.player_id,
                 player_name: p.player_name,
               }))

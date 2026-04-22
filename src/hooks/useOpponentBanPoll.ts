@@ -19,7 +19,7 @@ export function useOpponentBanPoll(
       try {
         const teamId = sessionStorage.getItem("currentTeamId");
         const details = await getSessionDetails(sessionCode);
-        const myTeam = details.teams.find((t: any) => t.team_id === teamId);
+        const myTeam = details.teams.find((t) => t.team_id === teamId);
         if (myTeam && myTeam.banned_zone !== null) {
           clearInterval(interval);
           navigate(`/session/${sessionCode}/game`);
