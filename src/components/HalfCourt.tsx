@@ -49,13 +49,7 @@ function getBadgeColor(percentage: number | null, attempts: number) {
   return "hsl(0 84% 60%)";
 }
 
-function getZoneHeatFill(percentage: number | null, attempts: number): string {
-  if (attempts === 0 || percentage === null) return "transparent";
-  if (percentage >= 60) return "rgba(34,197,94,0.30)";
-  if (percentage >= 40) return "rgba(234,179,8,0.30)";
-  if (percentage >= 20) return "rgba(249,115,22,0.30)";
-  return "rgba(239,68,68,0.30)";
-}
+
 
 // ── Zone interaction layers mapped to the 512x479 court image ──
 const ZONE_INTERACTION_LAYERS = [
@@ -257,9 +251,7 @@ export function HalfCourt({
         {/* Zone interaction layers */}
         {ZONE_INTERACTION_LAYERS.map(({ z, type, points, x, y, width, height, clip }) => {
           const isBanned = bannedZone === z;
-          const zs = zoneStats?.[z];
-          const heatFill = zs ? getZoneHeatFill(zs.percentage, zs.attempts) : "transparent";
-          const fill = isBanned ? "url(#bannedZonePattern)" : heatFill;
+          const fill = isBanned ? "url(#bannedZonePattern)" : "transparent";
           const classes = isBanned ? "animate-pulse stroke-red-500 stroke-2" : "";
           const cursor = isBanned ? "not-allowed" : (interactiveBanMode ? "crosshair" : (disabled ? "default" : "crosshair"));
 
