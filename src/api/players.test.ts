@@ -5,8 +5,11 @@ import type { PlayerStats } from "./players";
 describe("fetchPlayerStats", () => {
   const originalFetch = global.fetch;
 
+  let mockFetch: ReturnType<typeof mock>;
+
   beforeEach(() => {
-    global.fetch = mock() as any;
+    mockFetch = mock();
+    global.fetch = mockFetch as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -25,7 +28,7 @@ describe("fetchPlayerStats", () => {
   };
 
   it("should successfully fetch player stats", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockPlayerStats),
     });
@@ -41,7 +44,7 @@ describe("fetchPlayerStats", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Player not found";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -50,7 +53,7 @@ describe("fetchPlayerStats", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -59,7 +62,7 @@ describe("fetchPlayerStats", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -68,13 +71,13 @@ describe("fetchPlayerStats", () => {
   });
 
   it("should throw an error on network failure", async () => {
-    (global.fetch as any).mockRejectedValue(new Error("Network connection failed"));
+    mockFetch.mockRejectedValue(new Error("Network connection failed"));
 
     await expect(fetchPlayerStats(mockPlayerId)).rejects.toThrow("Network connection failed");
   });
 
   it("should throw an error when successful response json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -86,8 +89,11 @@ describe("fetchPlayerStats", () => {
 describe("fetchTeamPlayers", () => {
   const originalFetch = global.fetch;
 
+  let mockFetch: ReturnType<typeof mock>;
+
   beforeEach(() => {
-    global.fetch = mock() as any;
+    mockFetch = mock();
+    global.fetch = mockFetch as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -111,7 +117,7 @@ describe("fetchTeamPlayers", () => {
   };
 
   it("should successfully fetch team players", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockTeamPlayers),
     });
@@ -127,7 +133,7 @@ describe("fetchTeamPlayers", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Team not found";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -136,7 +142,7 @@ describe("fetchTeamPlayers", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -145,7 +151,7 @@ describe("fetchTeamPlayers", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -154,13 +160,13 @@ describe("fetchTeamPlayers", () => {
   });
 
   it("should throw an error on network failure", async () => {
-    (global.fetch as any).mockRejectedValue(new Error("Network connection failed"));
+    mockFetch.mockRejectedValue(new Error("Network connection failed"));
 
     await expect(fetchTeamPlayers(mockTeamId)).rejects.toThrow("Network connection failed");
   });
 
   it("should throw an error when successful response json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });

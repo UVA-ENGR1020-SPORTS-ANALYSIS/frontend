@@ -71,9 +71,9 @@ export function JoinMembersPage() {
       } else {
         navigate(`/session/${sessionCode}/lobby`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to join team:", err);
-      setSubmitError(err.message || "Failed to connect to the server.");
+      setSubmitError(err instanceof Error ? err.message : "Failed to connect to the server.");
     }
   };
 

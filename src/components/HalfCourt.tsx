@@ -85,6 +85,7 @@ export function HalfCourt({
     screenX: number;
     screenY: number;
     zone: number;
+    wrapperWidth: number;
   } | null>(null);
 
   // Convert screen coords to SVG coords
@@ -119,7 +120,7 @@ export function HalfCourt({
       if (disabled || !onShotPlaced) return;
       if (bannedZone === zone) return;
 
-      setPending({ ...pt, zone });
+      setPending({ ...pt, zone, wrapperWidth: wrapperRef.current?.clientWidth ?? IMG_W });
     },
     [toSvgPoint, disabled, bannedZone, interactiveBanMode, onZoneClick, onShotPlaced]
   );
@@ -300,7 +301,7 @@ export function HalfCourt({
         <div
           className="absolute flex gap-2 items-center z-30 pointer-events-auto"
           style={{
-            left: `${Math.max(30, Math.min(pending.screenX, (wrapperRef.current?.clientWidth ?? IMG_W) - 30))}px`,
+            left: `${Math.max(30, Math.min(pending.screenX, pending.wrapperWidth - 30))}px`,
             top: `${Math.max(60, pending.screenY)}px`,
             transform: "translate(-50%, -115%)",
           }}

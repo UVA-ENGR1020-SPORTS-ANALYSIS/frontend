@@ -4,6 +4,7 @@ import { Loader2, ArrowLeft, User, MapPin, Target, TrendingUp, BarChart3 } from 
 import { Button } from "@/components/ui/button";
 import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
 import { fetchTeamStatsAPI } from "@/api/game";
+import type { RawShot } from "@/api/game";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -84,7 +85,7 @@ export function StatsPage() {
             for (let i = 1; i <= 6; i++) {
               computed[i] = { makes: 0, attempts: 0, percentage: null };
             }
-            stats.raw_shots.forEach((s: any) => {
+            stats.raw_shots.forEach((s: RawShot) => {
               const z = s.zone;
               if (computed[z]) {
                 computed[z].attempts += 1;

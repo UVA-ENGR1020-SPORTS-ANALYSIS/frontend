@@ -86,8 +86,8 @@ export function GamePage() {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => setCourtVisible(true));
         });
-      } catch (err: any) {
-        setError(err.message || "Failed to load game data");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load game data");
       }
     })();
   }, [sessionCode, navigate]);

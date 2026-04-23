@@ -6,6 +6,7 @@ import { HalfCourt, type ZoneStat } from "@/components/HalfCourt";
 import { BanConfirmationModal } from "@/components/BanConfirmationModal";
 import { useOpponentBanPoll } from "@/hooks/useOpponentBanPoll";
 import { fetchOpponentStatsAPI, banOpponentZoneAPI } from "@/api/game";
+import type { RawShot } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
 
 export function BanZonePage() {
@@ -45,7 +46,7 @@ export function BanZonePage() {
           zStats[i] = { makes: 0, attempts: 0, percentage: 0 };
         }
 
-        raw_shots.forEach((s: any) => {
+        raw_shots.forEach((s: RawShot) => {
           const z = s.zone;
           if (zStats[z]) {
             zStats[z].attempts += 1;
@@ -59,8 +60,8 @@ export function BanZonePage() {
           }
         }
         setZoneStats(zStats);
-      } catch (err: any) {
-        setError(err.message || "Failed to load opponent stats");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load opponent stats");
       } finally {
         setLoading(false);
       }
@@ -81,8 +82,8 @@ export function BanZonePage() {
       await banOpponentZoneAPI({ opponent_team_id: opponentTeamId, zone });
       setBanning(false);
       setWaitingForOpponent(true);
-    } catch (err: any) {
-      setError("Failed to ban zone: " + err.message);
+    } catch (err: unknown) {
+      setError("Failed to ban zone: " + (err instanceof Error ? err.message : "Unknown error"));
       setBanning(false);
     }
   };

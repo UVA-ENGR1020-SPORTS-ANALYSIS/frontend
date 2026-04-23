@@ -6,6 +6,7 @@ import { ResultsScoreCard } from "@/components/ResultsScoreCard";
 import { PlayerStatsList } from "@/components/PlayerStatsList";
 import { fetchTeamStatsAPI } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
+import type { Team } from "@/api/sessions";
 import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
 
 export function FinalResultsPage() {
@@ -16,8 +17,8 @@ export function FinalResultsPage() {
   const [error, setError] = useState("");
   
   const [results, setResults] = useState<{
-    myTeam: any;
-    opponentTeam: any;
+    myTeam: Team;
+    opponentTeam: Team | null;
     myPoints: number;
     oppPoints: number;
     winner: 'me' | 'opponent' | 'tie' | null;
@@ -88,11 +89,11 @@ export function FinalResultsPage() {
           setWaitingForOpponent(true);
           setLoading(false);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!initialLoadDone) {
           // Only surface errors to the UI on the first load attempt;
           // transient poll failures are silently logged so polling continues.
-          setError(err.message || "Failed to load final results");
+          setError(err instanceof Error ? err.message : "Failed to load final results");
           setLoading(false);
           clearInterval(intervalId);
         } else {

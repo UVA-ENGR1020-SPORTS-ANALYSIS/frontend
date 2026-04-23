@@ -2,9 +2,11 @@ import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
 import { banOpponentZoneAPI, fetchOpponentStatsAPI, fetchTeamStatsAPI, finishRoundAPI, submitShotAPI } from "./game";
 
 const originalFetch = global.fetch;
+let mockFetch: ReturnType<typeof mock>;
 
 beforeEach(() => {
-  global.fetch = mock() as any;
+  mockFetch = mock();
+  global.fetch = mockFetch as unknown as typeof fetch;
 });
 
 afterEach(() => {
@@ -17,7 +19,7 @@ describe("fetchTeamStatsAPI", () => {
 
   it("should successfully fetch team stats and return data", async () => {
     const mockResponse = { team_id: "team_1", score: 10 };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -36,7 +38,7 @@ describe("fetchTeamStatsAPI", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Team not found";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -45,7 +47,7 @@ describe("fetchTeamStatsAPI", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -54,7 +56,7 @@ describe("fetchTeamStatsAPI", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -71,7 +73,7 @@ describe("finishRoundAPI", () => {
 
   it("should successfully finish a round and return data", async () => {
     const mockResponse = { status: "success", message: "Round finished" };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -93,7 +95,7 @@ describe("finishRoundAPI", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Round already finished";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -102,7 +104,7 @@ describe("finishRoundAPI", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -111,7 +113,7 @@ describe("finishRoundAPI", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -132,7 +134,7 @@ describe("submitShotAPI", () => {
 
   it("should successfully submit a shot and return data", async () => {
     const mockResponse = { status: "success", shot_id: "shot_1", points_awarded: 3 };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -154,7 +156,7 @@ describe("submitShotAPI", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Failed to record shot.";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -163,7 +165,7 @@ describe("submitShotAPI", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -172,7 +174,7 @@ describe("submitShotAPI", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -193,7 +195,7 @@ describe("fetchOpponentStatsAPI", () => {
       points: 12,
       raw_shots: [{ zone: 4, shot_made: true }],
     };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -212,7 +214,7 @@ describe("fetchOpponentStatsAPI", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Failed to fetch teams.";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -221,7 +223,7 @@ describe("fetchOpponentStatsAPI", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -230,7 +232,7 @@ describe("fetchOpponentStatsAPI", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -247,7 +249,7 @@ describe("banOpponentZoneAPI", () => {
 
   it("should successfully ban an opponent zone and return data", async () => {
     const mockResponse = { status: "success", message: "Banned zone 5 for opponent." };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -269,7 +271,7 @@ describe("banOpponentZoneAPI", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Failed to set banned zone.";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -278,7 +280,7 @@ describe("banOpponentZoneAPI", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -287,7 +289,7 @@ describe("banOpponentZoneAPI", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });

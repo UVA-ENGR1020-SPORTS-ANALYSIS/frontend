@@ -35,6 +35,22 @@ export interface BanZoneRequest {
   zone: number;
 }
 
+export interface RawShot {
+  zone: number;
+  shot_made: boolean;
+}
+
+export interface TeamStatsResponse {
+  points: number;
+  raw_shots: RawShot[];
+}
+
+export interface OpponentStatsResponse {
+  status: string;
+  opponent_team_id: string;
+  raw_shots: RawShot[];
+}
+
 export async function submitShotAPI(data: SubmitShotRequest): Promise<SubmitShotResponse> {
   const response = await apiFetch(`${BASE_URL}/api/game/shot`, {
     method: "POST",
@@ -61,7 +77,7 @@ export async function finishRoundAPI(data: FinishRoundRequest): Promise<{ status
   return response.json();
 }
 
-export async function fetchOpponentStatsAPI(sessionId: string, myTeamId: string) {
+export async function fetchOpponentStatsAPI(sessionId: string, myTeamId: string): Promise<OpponentStatsResponse> {
   const response = await apiFetch(`${BASE_URL}/api/game/opponent_stats/${sessionId}/${myTeamId}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -70,7 +86,7 @@ export async function fetchOpponentStatsAPI(sessionId: string, myTeamId: string)
   return response.json();
 }
 
-export async function fetchTeamStatsAPI(teamId: string, roundNumber: number) {
+export async function fetchTeamStatsAPI(teamId: string, roundNumber: number): Promise<TeamStatsResponse> {
   const response = await apiFetch(`${BASE_URL}/api/game/team_stats/${teamId}/${roundNumber}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);

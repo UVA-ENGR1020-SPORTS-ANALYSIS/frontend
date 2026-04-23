@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { HalfCourt, type ZoneStat } from "@/components/HalfCourt";
 import { PlayerStatsList } from "@/components/PlayerStatsList";
 import { fetchTeamStatsAPI, fetchOpponentStatsAPI } from "@/api/game";
+import type { RawShot } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
 import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
 
@@ -39,7 +40,7 @@ export function ResultsPage() {
         setTotalPoints(stats.points);
 
         // Build zone stats in a single pass
-        const zStats = stats.raw_shots.reduce((acc: Record<number, ZoneStat>, s: any) => {
+        const zStats = stats.raw_shots.reduce((acc: Record<number, ZoneStat>, s: RawShot) => {
           const z = s.zone;
           if (!acc[z]) acc[z] = { makes: 0, attempts: 0, percentage: 0 };
           acc[z].attempts += 1;
@@ -54,8 +55,8 @@ export function ResultsPage() {
         // Fetch per-player stats
         const { players } = await fetchTeamPlayers(tId);
         setPlayerStats(players);
-      } catch (err: any) {
-        setError(err.message || "Failed to load stats");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load stats");
       } finally {
         setLoading(false);
       }

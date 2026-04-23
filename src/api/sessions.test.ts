@@ -2,9 +2,11 @@ import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
 import { createSession, getSessionDetails, joinTeam, toggleTeamReady, validateSessionCode } from "./sessions";
 
 const originalFetch = global.fetch;
+let mockFetch: ReturnType<typeof mock>;
 
 beforeEach(() => {
-  global.fetch = mock() as any;
+  mockFetch = mock();
+  global.fetch = mockFetch as unknown as typeof fetch;
 });
 
 afterEach(() => {
@@ -20,7 +22,7 @@ describe("joinTeam", () => {
 
   it("should successfully join a team and return data", async () => {
     const mockResponse = { status: "success", team_id: "team_1", players: [], message: "Joined" };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -42,7 +44,7 @@ describe("joinTeam", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Team is full";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -51,7 +53,7 @@ describe("joinTeam", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -60,7 +62,7 @@ describe("joinTeam", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -80,7 +82,7 @@ describe("validateSessionCode", () => {
       current_teams_count: 1,
       message: "Room is ready. Please enter your team's players.",
     };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -99,7 +101,7 @@ describe("validateSessionCode", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Room is already full.";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -108,7 +110,7 @@ describe("validateSessionCode", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -117,7 +119,7 @@ describe("validateSessionCode", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -135,7 +137,7 @@ describe("createSession", () => {
 
   it("should successfully create a session with an explicit payload", async () => {
     const mockResponse = { session_code: 654321, session_id: "session_2" };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -157,7 +159,7 @@ describe("createSession", () => {
 
   it("should successfully create a session with the default payload", async () => {
     const mockResponse = { session_code: 111111, session_id: "session_3" };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -179,7 +181,7 @@ describe("createSession", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Could not generate a unique session code. Try again.";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -188,7 +190,7 @@ describe("createSession", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -197,7 +199,7 @@ describe("createSession", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -219,7 +221,7 @@ describe("getSessionDetails", () => {
       },
       teams: [{ team_id: "team_1", player: [{ player_name: "Alice" }] }],
     };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -238,7 +240,7 @@ describe("getSessionDetails", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Session not found";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -247,7 +249,7 @@ describe("getSessionDetails", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -256,7 +258,7 @@ describe("getSessionDetails", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
@@ -270,7 +272,7 @@ describe("toggleTeamReady", () => {
 
   it("should successfully toggle team ready status and return data", async () => {
     const mockResponse = { status: "success", is_ready: true };
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
     });
@@ -292,7 +294,7 @@ describe("toggleTeamReady", () => {
 
   it("should throw an error with detail message on non-ok response", async () => {
     const errorDetail = "Team not found or could not update status.";
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: errorDetail }),
     });
@@ -301,7 +303,7 @@ describe("toggleTeamReady", () => {
   });
 
   it("should throw a default error on non-ok response without detail", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ someOtherField: "error" }),
     });
@@ -310,7 +312,7 @@ describe("toggleTeamReady", () => {
   });
 
   it("should throw a default error when response is not ok and json parsing fails", async () => {
-    (global.fetch as any).mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       json: () => Promise.reject(new Error("Invalid JSON")),
     });
