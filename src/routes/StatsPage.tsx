@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, User, MapPin, Target, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
 import { fetchTeamStatsAPI } from "@/api/game";
@@ -8,12 +8,11 @@ import { fetchTeamStatsAPI } from "@/api/game";
 type ZoneStat = { makes: number; attempts: number; percentage: number | null };
 
 function pctColor(pct: number | null): string {
-  if (pct === null) return "#9e9e9e";
-  if (pct >= 80) return "#1a5c1a";
-  if (pct >= 60) return "#4ca84c";
-  if (pct >= 40) return "#e8c020";
-  if (pct >= 20) return "#c87818";
-  return "#b82020";
+  if (pct === null) return "hsl(var(--muted))";
+  if (pct >= 60) return "hsl(142 71% 45%)";
+  if (pct >= 40) return "hsl(48 96% 53%)";
+  if (pct >= 20) return "hsl(25 95% 53%)";
+  return "hsl(0 84% 60%)";
 }
 
 export function StatsPage() {
@@ -59,8 +58,8 @@ export function StatsPage() {
         } catch {
           // Zone data optional
         }
-      } catch (err: any) {
-        setError(err.message || "Failed to load stats");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load stats");
       } finally {
         setLoading(false);
       }
@@ -88,69 +87,123 @@ export function StatsPage() {
   const hasZones = Object.keys(zoneStats).length > 0;
 
   return (
-    <div style={{ background: "#f0d898", minHeight: "100dvh", padding: "14px 16px 24px", fontFamily: "Arial, sans-serif", userSelect: "none" }}>
-      <Button variant="ghost" size="sm" className="mb-3 gap-1" onClick={() => navigate(-1)}>
-        <ArrowLeft className="size-4" />
-        Back
-      </Button>
+    <div className="min-h-[100dvh] bg-background p-4 pb-8">
+      {/* Header */}
+      <div className="max-w-lg mx-auto">
+        <Button variant="ghost" size="sm" className="mb-4 gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => navigate(-1)}>
+          <ArrowLeft className="size-4" />
+          Back
+        </Button>
 
-      <div style={{ display: "flex", gap: 2 }}>
-        <div style={{ padding: "7px 20px", border: "2px solid #666", borderBottom: "none", borderRadius: "7px 7px 0 0", background: "#dcc878", fontSize: 14, fontWeight: 600, color: "#111" }}>
-          Player stats
+        <div className="mb-6">
+          <h1 className="text-2xl font-black tracking-tight">Team Stats</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Round 1 performance breakdown</p>
         </div>
-        <div style={{ padding: "7px 20px", border: "2px solid #888", borderBottom: "none", borderRadius: "7px 7px 0 0", background: "#c8c8c8", fontSize: 14, fontWeight: 600, color: "#222" }}>
-          Location stats
-        </div>
-      </div>
 
-      <div style={{ border: "4px solid #8b1010", borderRadius: "0 10px 10px 10px", background: "#f0d898", padding: 14 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {/* Player Cards */}
+        <div className="space-y-4">
           {players.map((player) => {
             const misses = player.total_attempts - player.total_makes;
             const pct = player.shooting_pct ?? (player.total_attempts > 0 ? Math.round((player.total_makes / player.total_attempts) * 100) : null);
 
             return (
-              <div key={player.player_id} style={{ border: "3px solid #8b1010", borderRadius: 10, background: "#f5dfa8", padding: "14px 14px 12px" }}>
-                <div style={{ fontSize: 22, fontWeight: 900, color: "#111", marginBottom: 10 }}>
-                  {player.player_name}:
+              <div key={player.player_id} className="rounded-xl border bg-card p-4 shadow-sm">
+                {/* Player name */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="size-4 text-primary" />
+                  </div>
+                  <h2 className="text-lg font-bold">{player.player_name}</h2>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <div style={{ gridColumn: "1 / -1", background: "#fff", border: "1.5px solid #c0b090", borderRadius: 8, padding: "8px 10px", display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#222", marginBottom: 5 }}>Overall</div>
-                      <div style={{ fontSize: 12, color: "#333", marginBottom: 3 }}>
-                        Shots made: <span style={{ fontWeight: 700 }}>{player.total_makes}</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: "#333" }}>
-                        Shots missed: <span style={{ fontWeight: 700 }}>{misses}</span>
-                      </div>
+
+                {/* Overall stat row */}
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 mb-3">
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <Target className="size-3" />
+                      Overall
                     </div>
-                    <div style={{ flexShrink: 0, width: 68, height: 52, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, fontWeight: 900, color: "#fff", background: pctColor(pct) }}>
-                      {pct !== null ? `${pct}%` : "—"}
+                    <div className="flex gap-4 text-sm">
+                      <span>
+                        <span className="font-bold text-green-500">{player.total_makes}</span>
+                        <span className="text-muted-foreground"> made</span>
+                      </span>
+                      <span>
+                        <span className="font-bold text-red-500">{misses}</span>
+                        <span className="text-muted-foreground"> missed</span>
+                      </span>
                     </div>
                   </div>
-
-                  {hasZones && [1, 2, 3, 4, 5, 6].map((z) => {
-                    const zs = zoneStats[z];
-                    if (!zs) return null;
-                    return (
-                      <div key={z} style={{ background: "#fff", border: "1.5px solid #c0b090", borderRadius: 8, padding: "8px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: "#222", marginBottom: 4 }}>Zone {z}</div>
-                          <div style={{ fontSize: 11, color: "#333", marginBottom: 2 }}>Made: {zs.makes}</div>
-                          <div style={{ fontSize: 11, color: "#333" }}>Missed: {zs.attempts - zs.makes}</div>
-                        </div>
-                        <div style={{ flexShrink: 0, width: 52, height: 44, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 900, color: "#fff", background: pctColor(zs.percentage) }}>
-                          {zs.percentage !== null ? `${zs.percentage}%` : "—"}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <div
+                    className="size-14 rounded-lg flex items-center justify-center text-lg font-black text-white shadow-sm"
+                    style={{ backgroundColor: pctColor(pct) }}
+                  >
+                    {pct !== null ? `${pct}%` : "—"}
+                  </div>
                 </div>
+
+                {/* Zone stats grid */}
+                {hasZones && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3, 4, 5, 6].map((z) => {
+                      const zs = zoneStats[z];
+                      if (!zs) return null;
+                      return (
+                        <div key={z} className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/30 border border-border/50">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
+                              <MapPin className="size-2.5" />
+                              Zone {z}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {zs.makes}/{zs.attempts}
+                            </div>
+                          </div>
+                          <div
+                            className="size-9 rounded-md flex items-center justify-center text-xs font-black text-white shadow-sm"
+                            style={{ backgroundColor: pctColor(zs.percentage) }}
+                          >
+                            {zs.percentage !== null ? `${zs.percentage}%` : "—"}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
+
+        {/* Summary card */}
+        {players.length > 0 && (
+          <div className="mt-6 rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
+              <TrendingUp className="size-3.5" />
+              Team Summary
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <div className="text-2xl font-black text-green-500">
+                  {players.reduce((s, p) => s + p.total_makes, 0)}
+                </div>
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase">Total Makes</div>
+              </div>
+              <div>
+                <div className="text-2xl font-black text-foreground">
+                  {players.reduce((s, p) => s + p.total_attempts, 0)}
+                </div>
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase">Attempts</div>
+              </div>
+              <div>
+                <div className="text-2xl font-black text-primary">
+                  {players.reduce((s, p) => s + (p.total_points ?? 0), 0)}
+                </div>
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase">Points</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

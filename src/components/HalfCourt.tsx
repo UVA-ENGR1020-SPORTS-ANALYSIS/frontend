@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
+import courtImage from "@/assets/basketballcourt.png";
 
 // ── Types ──
 
@@ -27,45 +28,53 @@ interface HalfCourtProps {
   onZoneClick?: (zone: number) => void;
 }
 
-const ZONE_CENTERS: Record<number, {x: number, y: number}> = {
-  1: { x: 245, y: 120 },
-  2: { x: 95, y: 175 },
-  3: { x: 395, y: 175 },
-  4: { x: 82, y: 430 },
-  5: { x: 245, y: 440 },
-  6: { x: 408, y: 430 },
+// ── Image dimensions (matching the 512x479 PNG) ──
+const IMG_W = 512;
+const IMG_H = 479;
+
+// Zone centers — visually matched to the court PNG
+const ZONE_CENTERS: Record<number, { x: number; y: number }> = {
+  1: { x: 256, y: 100 },
+  2: { x: 100, y: 150 },
+  3: { x: 412, y: 150 },
+  4: { x: 70,  y: 370 },
+  5: { x: 256, y: 390 },
+  6: { x: 442, y: 370 },
 };
 
 function getBadgeColor(percentage: number, attempts: number) {
-  if (attempts === 0) return "#9ca3af"; // gray-400
-  if (percentage >= 50) return "#22c55e"; // green-500
-  if (percentage >= 25) return "#eab308"; // yellow-500
-  return "#ef4444"; // red-500
+  if (attempts === 0) return "hsl(var(--muted))";
+  if (percentage >= 50) return "hsl(142 71% 45%)";   // green
+  if (percentage >= 25) return "hsl(48 96% 53%)";    // yellow
+  return "hsl(0 84% 60%)";                            // red
 }
 
-// ── Zone detection ──
-// Removed manual mathematical getZone. We now rely natively on SVG Polygons for pixel-perfect boundaries.
-
-// ── Zone interaction layer definitions (extracted to avoid recreation on every render) ──
+// ── Zone interaction layers mapped to the 512x479 court image ──
 const ZONE_INTERACTION_LAYERS = [
-  { z: 1, type: "rect" as const, x: 182, y: 18, width: 126, height: 188, clip: undefined, points: undefined },
-  { z: 2, type: "polygon" as const, points: "30,18 182,18 182,206 245,206 245,380 30,380", clip: "url(#insideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
-  { z: 3, type: "polygon" as const, points: "460,18 308,18 308,206 245,206 245,380 460,380", clip: "url(#insideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
-  { z: 4, type: "polygon" as const, points: "30,148 182,306 30,512", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
-  { z: 5, type: "polygon" as const, points: "182,306 308,306 460,512 30,512", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
-  { z: 6, type: "polygon" as const, points: "460,148 308,306 460,512", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  // Zone 1 — paint/key area (blue rectangle)
+  { z: 1, type: "rect" as const, x: 185, y: 0, width: 142, height: 185, clip: undefined, points: undefined },
+  // Zone 2 — inside arc, left of key
+  { z: 2, type: "polygon" as const, points: "25,0 185,0 185,185 256,185 256,320 25,320", clip: "url(#insideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  // Zone 3 — inside arc, right of key
+  { z: 3, type: "polygon" as const, points: "487,0 327,0 327,185 256,185 256,320 487,320", clip: "url(#insideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  // Zone 4 — outside arc, left corner
+  { z: 4, type: "polygon" as const, points: "25,120 185,265 25,479", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  // Zone 5 — outside arc, center
+  { z: 5, type: "polygon" as const, points: "185,265 327,265 487,479 25,479", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  // Zone 6 — outside arc, right corner
+  { z: 6, type: "polygon" as const, points: "487,120 327,265 487,479", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
 ] as const;
 
 // ── Component ──
 
-export function HalfCourt({ 
-  shots, 
-  bannedZone, 
-  onShotPlaced, 
-  disabled, 
-  zoneStats, 
-  interactiveBanMode, 
-  onZoneClick 
+export function HalfCourt({
+  shots,
+  bannedZone,
+  onShotPlaced,
+  disabled,
+  zoneStats,
+  interactiveBanMode,
+  onZoneClick,
 }: HalfCourtProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -84,8 +93,8 @@ export function HalfCourt({
       if (!svgRef.current || !wrapperRef.current) return null;
       const svgRect = svgRef.current.getBoundingClientRect();
       const wrapRect = wrapperRef.current.getBoundingClientRect();
-      const scaleX = 490 / svgRect.width;
-      const scaleY = 530 / svgRect.height;
+      const scaleX = IMG_W / svgRect.width;
+      const scaleY = IMG_H / svgRect.height;
       return {
         svgX: (clientX - svgRect.left) * scaleX,
         svgY: (clientY - svgRect.top) * scaleY,
@@ -165,239 +174,28 @@ export function HalfCourt({
     <div ref={wrapperRef} className="relative flex-shrink-0 select-none">
       <svg
         ref={svgRef}
-        width="490"
-        height="530"
-        viewBox="0 0 490 530"
-        className="block rounded shadow-[0_5px_22px_rgba(0,0,0,0.38)] w-full max-w-[490px]"
+        width={IMG_W}
+        height={IMG_H}
+        viewBox={`0 0 ${IMG_W} ${IMG_H}`}
+        className="block rounded-xl border border-border/50 w-full max-w-[512px] shadow-lg"
         style={{ cursor: disabled ? "default" : "crosshair" }}
       >
         <defs>
-          {/* Hardwood floor gradient */}
-          <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#b06c28" />
-            <stop offset="8%" stopColor="#c8843c" />
-            <stop offset="18%" stopColor="#d49244" />
-            <stop offset="28%" stopColor="#be7a30" />
-            <stop offset="38%" stopColor="#cc8a3e" />
-            <stop offset="50%" stopColor="#d49040" />
-            <stop offset="62%" stopColor="#c4802e" />
-            <stop offset="72%" stopColor="#d09040" />
-            <stop offset="83%" stopColor="#c88438" />
-            <stop offset="92%" stopColor="#be7a2e" />
-            <stop offset="100%" stopColor="#b07028" />
-          </linearGradient>
-
-          {/* Vertical plank lines */}
-          <pattern
-            id="planks"
-            x="0"
-            y="0"
-            width="26"
-            height="530"
-            patternUnits="userSpaceOnUse"
-          >
-            <rect width="26" height="530" fill="none" />
-            <line
-              x1="25.5"
-              y1="0"
-              x2="25.5"
-              y2="530"
-              stroke="rgba(0,0,0,0.055)"
-              strokeWidth="1"
-            />
-          </pattern>
-
-          {/* Subtle grain */}
-          <pattern
-            id="grain"
-            x="0"
-            y="0"
-            width="26"
-            height="90"
-            patternUnits="userSpaceOnUse"
-          >
-            <line
-              x1="0"
-              y1="44"
-              x2="26"
-              y2="44"
-              stroke="rgba(0,0,0,0.025)"
-              strokeWidth="0.5"
-            />
-          </pattern>
-
-          {/* Hitbox patterns and clips for Zones */}
-          <pattern id="bannedZonePattern" width="30" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <rect width="30" height="30" fill="rgba(239, 68, 68, 0.15)" />
-            <line x1="0" y1="0" x2="0" y2="30" stroke="rgba(239, 68, 68, 0.3)" strokeWidth="8" />
+          {/* Banned zone hatching pattern */}
+          <pattern id="bannedZonePattern" width="24" height="24" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="24" height="24" fill="rgba(239, 68, 68, 0.12)" />
+            <line x1="0" y1="0" x2="0" y2="24" stroke="rgba(239, 68, 68, 0.25)" strokeWidth="6" />
           </pattern>
           <clipPath id="insideArcClip">
-             <path d="M30,18 L460,18 L460,148 A222,222 0 0,1 30,148 Z" />
+            <path d={`M25,0 L487,0 L487,120 A240,240 0 0,1 25,120 Z`} />
           </clipPath>
           <clipPath id="outsideArcClip">
-             <path d="M30,148 A222,222 0 0,0 460,148 L460,512 L30,512 Z" />
+            <path d={`M25,120 A240,240 0 0,0 487,120 L487,479 L25,479 Z`} />
           </clipPath>
         </defs>
 
-        {/* Floor base */}
-        <rect width="490" height="530" fill="url(#wood)" />
-        <rect width="490" height="530" fill="url(#planks)" />
-        <rect width="490" height="530" fill="url(#grain)" />
-
-        {/* Court boundary */}
-        <rect
-          x="30"
-          y="18"
-          width="430"
-          height="494"
-          fill="none"
-          stroke="#111"
-          strokeWidth="2.5"
-        />
-
-        {/* Key / Lane */}
-        <rect
-          x="182"
-          y="18"
-          width="126"
-          height="188"
-          fill="rgba(160,65,20,0.13)"
-          stroke="#111"
-          strokeWidth="2.2"
-        />
-
-        {/* Free-throw circle — dashed top */}
-        <path
-          d="M182,206 A63,63 0 0,0 308,206"
-          fill="none"
-          stroke="#111"
-          strokeWidth="2"
-          strokeDasharray="5,5"
-        />
-        {/* Free-throw circle — solid bottom */}
-        <path
-          d="M182,206 A63,63 0 0,1 308,206"
-          fill="none"
-          stroke="#111"
-          strokeWidth="2"
-        />
-
-        {/* Three-point line straight edges */}
-        <line x1="30" y1="18" x2="30" y2="148" stroke="#111" strokeWidth="2.2" />
-        <line x1="460" y1="18" x2="460" y2="148" stroke="#111" strokeWidth="2.2" />
-        {/* Three-point arc */}
-        <path
-          d="M30,148 A222,222 0 0,0 460,148"
-          fill="none"
-          stroke="#111"
-          strokeWidth="2.2"
-        />
-
-        {/* Restricted-area arc */}
-        <path
-          d="M213,18 A32,32 0 0,0 277,18"
-          fill="none"
-          stroke="#111"
-          strokeWidth="1.8"
-        />
-
-        {/* Backboard */}
-        <rect x="207" y="20" width="76" height="5" rx="1.5" fill="#111" />
-        {/* Rim post */}
-        <line x1="245" y1="25" x2="245" y2="38" stroke="#555" strokeWidth="2" />
-        {/* Rim circle */}
-        <circle
-          cx="245"
-          cy="49"
-          r="17"
-          fill="none"
-          stroke="#d96020"
-          strokeWidth="3"
-        />
-        {/* Net suggestion */}
-        <path
-          d="M234,49 Q238,62 245,66 Q252,62 256,49"
-          fill="none"
-          stroke="#c85818"
-          strokeWidth="1.2"
-          strokeDasharray="2,2"
-        />
-
-        {/* Half-court circle at bottom */}
-        <circle cx="245" cy="512" r="58" fill="none" stroke="#111" strokeWidth="2" />
-
-        {/* ── Zone divider lines ── */}
-        <line x1="245" y1="206" x2="245" y2="315" stroke="#111" strokeWidth="2.2" />
-        <line x1="182" y1="306" x2="30" y2="512" stroke="#111" strokeWidth="2.2" />
-        <line x1="308" y1="306" x2="460" y2="512" stroke="#111" strokeWidth="2.2" />
-
-        {/* ── Zone labels ── */}
-        <text
-          x="245"
-          y="120"
-          textAnchor="middle"
-          fontSize="26"
-          fontWeight="900"
-          fill="rgba(0,0,0,0.42)"
-          style={{ pointerEvents: "none" }}
-        >
-          1
-        </text>
-        <text
-          x="95"
-          y="175"
-          textAnchor="middle"
-          fontSize="26"
-          fontWeight="900"
-          fill="rgba(0,0,0,0.42)"
-          style={{ pointerEvents: "none" }}
-        >
-          2
-        </text>
-        <text
-          x="395"
-          y="175"
-          textAnchor="middle"
-          fontSize="26"
-          fontWeight="900"
-          fill="rgba(0,0,0,0.42)"
-          style={{ pointerEvents: "none" }}
-        >
-          3
-        </text>
-        <text
-          x="82"
-          y="430"
-          textAnchor="middle"
-          fontSize="26"
-          fontWeight="900"
-          fill="rgba(0,0,0,0.42)"
-          style={{ pointerEvents: "none" }}
-        >
-          4
-        </text>
-        <text
-          x="245"
-          y="440"
-          textAnchor="middle"
-          fontSize="26"
-          fontWeight="900"
-          fill="rgba(0,0,0,0.42)"
-          style={{ pointerEvents: "none" }}
-        >
-          5
-        </text>
-        <text
-          x="408"
-          y="430"
-          textAnchor="middle"
-          fontSize="26"
-          fontWeight="900"
-          fill="rgba(0,0,0,0.42)"
-          style={{ pointerEvents: "none" }}
-        >
-          6
-        </text>
+        {/* Court background image */}
+        <image href={courtImage} x="0" y="0" width={IMG_W} height={IMG_H} />
 
         {/* ── Shot dots ── */}
         {shots.map((s) => (
@@ -405,11 +203,11 @@ export function HalfCourt({
             key={s.id}
             cx={s.svgX}
             cy={s.svgY}
-            r="12"
-            fill={s.made ? "#22c55e" : "#ef4444"}
-            stroke={s.made ? "#14532d" : "#7f1d1d"}
+            r="11"
+            fill={s.made ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)"}
+            stroke={s.made ? "hsl(142 71% 25%)" : "hsl(0 84% 30%)"}
             strokeWidth="2"
-            opacity="0.92"
+            opacity="0.9"
             style={{ pointerEvents: "none" }}
           />
         ))}
@@ -419,85 +217,46 @@ export function HalfCourt({
           <circle
             cx={pending.svgX}
             cy={pending.svgY}
-            r="12"
-            fill="white"
-            stroke="#aaa"
+            r="11"
+            fill="hsl(var(--background))"
+            stroke="hsl(var(--muted-foreground))"
             strokeWidth="2"
-            opacity="0.88"
+            opacity="0.85"
             style={{ pointerEvents: "none" }}
           />
         )}
 
-        {/* ── Stats badges ── */}
-        <rect
-          x="30"
-          y="466"
-          width="54"
-          height="46"
-          rx="5"
-          fill="rgba(22,101,52,0.88)"
-        />
-        <text
-          x="57"
-          y="497"
-          textAnchor="middle"
-          fontSize="30"
-          fontWeight="900"
-          fill="#4ade80"
-          style={{ pointerEvents: "none" }}
-        >
-          {makes}
-        </text>
+        {/* ── Stats row (makes / total / misses) ── */}
+        <foreignObject x="0" y={IMG_H - 48} width={IMG_W} height="48">
+          <div className="flex items-center justify-between px-4 h-full">
+            <div className="flex items-center gap-1.5 bg-green-500/90 text-white text-sm font-bold px-3 py-1.5 rounded-lg shadow-md">
+              <span className="text-lg">{makes}</span>
+              <span className="text-[10px] uppercase opacity-80">made</span>
+            </div>
+            <div className="bg-background/80 backdrop-blur text-foreground text-sm font-black px-3 py-1.5 rounded-lg border border-border shadow-sm">
+              {attempts} shots
+            </div>
+            <div className="flex items-center gap-1.5 bg-red-500/90 text-white text-sm font-bold px-3 py-1.5 rounded-lg shadow-md">
+              <span className="text-lg">{misses}</span>
+              <span className="text-[10px] uppercase opacity-80">miss</span>
+            </div>
+          </div>
+        </foreignObject>
 
-        <text
-          x="245"
-          y="499"
-          textAnchor="middle"
-          fontSize="30"
-          fontWeight="900"
-          fill="white"
-          stroke="rgba(0,0,0,0.4)"
-          strokeWidth="2"
-          paintOrder="stroke"
-          style={{ pointerEvents: "none" }}
-        >
-          {attempts}
-        </text>
-
-        <rect
-          x="406"
-          y="466"
-          width="54"
-          height="46"
-          rx="5"
-          fill="rgba(127,29,29,0.88)"
-        />
-        <text
-          x="433"
-          y="497"
-          textAnchor="middle"
-          fontSize="30"
-          fontWeight="900"
-          fill="#fca5a5"
-          style={{ pointerEvents: "none" }}
-        >
-          {misses}
-        </text>
-
-        {/* Zone interaction layers (perfectly matching visual lines via specific polygon clipping) */}
+        {/* Zone interaction layers */}
         {ZONE_INTERACTION_LAYERS.map(({ z, type, points, x, y, width, height, clip }) => {
           const isBanned = bannedZone === z;
-          
+
           const fill = isBanned ? "url(#bannedZonePattern)" : "transparent";
           const classes = isBanned ? "animate-pulse stroke-red-500 stroke-2" : "";
           const cursor = isBanned ? "not-allowed" : (interactiveBanMode ? "crosshair" : (disabled ? "default" : "crosshair"));
-          
+
           const clickHandler = (e: React.MouseEvent) => handleZoneInteraction(e, z);
 
           return type === "rect" ? (
-             <rect key={z} x={x} y={y} width={width} height={height} fill={fill} clipPath={clip} className={classes} style={{cursor}} onClick={clickHandler} />
+            <rect key={z} x={x} y={y} width={width} height={height} fill={fill} clipPath={clip} className={classes} style={{ cursor }} onClick={clickHandler} />
           ) : (
-             <polygon key={z} points={points} fill={fill} clipPath={clip} className={classes} style={{cursor}} onClick={clickHandler} />
+            <polygon key={z} points={points} fill={fill} clipPath={clip} className={classes} style={{ cursor }} onClick={clickHandler} />
           );
         })}
 
@@ -512,10 +271,10 @@ export function HalfCourt({
             return (
               <foreignObject
                 key={`badge-${zone}`}
-                x={center.x - 45}
-                y={center.y - 30}
-                width="90"
-                height="60"
+                x={center.x - 40}
+                y={center.y - 25}
+                width="80"
+                height="50"
                 onClick={(e) => {
                   if (interactiveBanMode && onZoneClick) {
                     e.stopPropagation();
@@ -524,12 +283,12 @@ export function HalfCourt({
                 }}
                 style={{ cursor: interactiveBanMode ? "pointer" : "default" }}
               >
-                <div 
-                  className="flex flex-col items-center justify-center w-full h-full rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.5)] border-2 border-white/60 text-white font-black leading-tight backdrop-blur-md transition-transform hover:scale-110 active:scale-95"
-                  style={{ backgroundColor: color + "ee" }}
+                <div
+                  className="flex flex-col items-center justify-center w-full h-full rounded-lg shadow-lg border border-white/40 text-white font-black leading-tight backdrop-blur-sm transition-transform hover:scale-110 active:scale-95"
+                  style={{ backgroundColor: color }}
                 >
-                  <span className="text-xl tracking-tighter">{Math.round(stat.percentage)}%</span>
-                  <span className="text-[10px] opacity-90">{stat.makes}/{stat.attempts}</span>
+                  <span className="text-lg tracking-tight">{Math.round(stat.percentage)}%</span>
+                  <span className="text-[9px] opacity-80">{stat.makes}/{stat.attempts}</span>
                 </div>
               </foreignObject>
             );
@@ -539,23 +298,22 @@ export function HalfCourt({
       {/* ── Make / Miss overlay ── */}
       {pending && (
         <div
-          className="absolute flex gap-2.5 items-center z-30 pointer-events-auto"
+          className="absolute flex gap-2 items-center z-30 pointer-events-auto"
           style={{
-            // eslint-disable-next-line react-hooks/refs
-            left: `${Math.max(30, Math.min(pending.screenX, (wrapperRef.current?.clientWidth ?? 490) - 30))}px`,
+            left: `${Math.max(30, Math.min(pending.screenX, (wrapperRef.current?.clientWidth ?? IMG_W) - 30))}px`,
             top: `${Math.max(60, pending.screenY)}px`,
             transform: "translate(-50%, -115%)",
           }}
         >
           <button
             onClick={handleMake}
-            className="w-[42px] h-[42px] rounded-lg border-[2.5px] text-xl font-bold flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:scale-[1.15] transition-transform bg-green-500 border-green-800 text-white cursor-pointer"
+            className="w-11 h-11 rounded-xl border-2 text-lg font-bold flex items-center justify-center shadow-lg hover:scale-110 transition-transform bg-green-500 border-green-700 text-white cursor-pointer"
           >
             ✓
           </button>
           <button
             onClick={handleMiss}
-            className="w-[42px] h-[42px] rounded-lg border-[2.5px] text-xl font-bold flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:scale-[1.15] transition-transform bg-red-500 border-red-800 text-white cursor-pointer"
+            className="w-11 h-11 rounded-xl border-2 text-lg font-bold flex items-center justify-center shadow-lg hover:scale-110 transition-transform bg-red-500 border-red-700 text-white cursor-pointer"
           >
             ✗
           </button>
