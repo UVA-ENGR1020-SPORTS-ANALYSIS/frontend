@@ -15,7 +15,7 @@ export interface ShotDot {
 export interface ZoneStat {
   makes: number;
   attempts: number;
-  percentage: number;
+  percentage: number | null;
 }
 
 interface HalfCourtProps {
@@ -42,11 +42,19 @@ const ZONE_CENTERS: Record<number, { x: number; y: number }> = {
   6: { x: 442, y: 370 },
 };
 
-function getBadgeColor(percentage: number, attempts: number) {
-  if (attempts === 0) return "hsl(var(--muted))";
-  if (percentage >= 50) return "hsl(142 71% 45%)";   // green
-  if (percentage >= 25) return "hsl(48 96% 53%)";    // yellow
-  return "hsl(0 84% 60%)";                            // red
+function getBadgeColor(percentage: number | null, attempts: number) {
+  if (attempts === 0 || percentage === null) return "hsl(var(--muted))";
+  if (percentage >= 50) return "hsl(142 71% 45%)";
+  if (percentage >= 25) return "hsl(48 96% 53%)";
+  return "hsl(0 84% 60%)";
+}
+
+function getZoneHeatFill(percentage: number | null, attempts: number): string {
+  if (attempts === 0 || percentage === null) return "transparent";
+  if (percentage >= 60) return "rgba(34,197,94,0.30)";
+  if (percentage >= 40) return "rgba(234,179,8,0.30)";
+  if (percentage >= 20) return "rgba(249,115,22,0.30)";
+  return "rgba(239,68,68,0.30)";
 }
 
 // ── Zone interaction layers mapped to the 512x479 court image ──
@@ -227,28 +235,31 @@ export function HalfCourt({
           />
         )}
 
-        {/* ── Stats row (makes / total / misses) ── */}
-        <foreignObject x="0" y={IMG_H - 48} width={IMG_W} height="48">
-          <div className="flex items-center justify-between px-4 h-full">
-            <div className="flex items-center gap-1.5 bg-green-500/90 text-white text-sm font-bold px-3 py-1.5 rounded-lg shadow-md">
-              <span className="text-lg">{makes}</span>
-              <span className="text-[10px] uppercase opacity-80">made</span>
+        {/* ── Stats row (makes / total / misses) — only in interactive mode ── */}
+        {onShotPlaced && (
+          <foreignObject x="0" y={IMG_H - 48} width={IMG_W} height="48">
+            <div className="flex items-center justify-between px-4 h-full">
+              <div className="flex items-center gap-1.5 bg-green-500/90 text-white text-sm font-bold px-3 py-1.5 rounded-lg shadow-md">
+                <span className="text-lg">{makes}</span>
+                <span className="text-[10px] uppercase opacity-80">made</span>
+              </div>
+              <div className="bg-background/80 backdrop-blur text-foreground text-sm font-black px-3 py-1.5 rounded-lg border border-border shadow-sm">
+                {attempts} shots
+              </div>
+              <div className="flex items-center gap-1.5 bg-red-500/90 text-white text-sm font-bold px-3 py-1.5 rounded-lg shadow-md">
+                <span className="text-lg">{misses}</span>
+                <span className="text-[10px] uppercase opacity-80">miss</span>
+              </div>
             </div>
-            <div className="bg-background/80 backdrop-blur text-foreground text-sm font-black px-3 py-1.5 rounded-lg border border-border shadow-sm">
-              {attempts} shots
-            </div>
-            <div className="flex items-center gap-1.5 bg-red-500/90 text-white text-sm font-bold px-3 py-1.5 rounded-lg shadow-md">
-              <span className="text-lg">{misses}</span>
-              <span className="text-[10px] uppercase opacity-80">miss</span>
-            </div>
-          </div>
-        </foreignObject>
+          </foreignObject>
+        )}
 
         {/* Zone interaction layers */}
         {ZONE_INTERACTION_LAYERS.map(({ z, type, points, x, y, width, height, clip }) => {
           const isBanned = bannedZone === z;
-
-          const fill = isBanned ? "url(#bannedZonePattern)" : "transparent";
+          const zs = zoneStats?.[z];
+          const heatFill = zs ? getZoneHeatFill(zs.percentage, zs.attempts) : "transparent";
+          const fill = isBanned ? "url(#bannedZonePattern)" : heatFill;
           const classes = isBanned ? "animate-pulse stroke-red-500 stroke-2" : "";
           const cursor = isBanned ? "not-allowed" : (interactiveBanMode ? "crosshair" : (disabled ? "default" : "crosshair"));
 
@@ -288,7 +299,7 @@ export function HalfCourt({
                   className="flex flex-col items-center justify-center w-full h-full rounded-lg shadow-lg border border-white/40 text-white font-black leading-tight backdrop-blur-sm transition-transform hover:scale-110 active:scale-95"
                   style={{ backgroundColor: color }}
                 >
-                  <span className="text-lg tracking-tight">{Math.round(stat.percentage)}%</span>
+                  <span className="text-lg tracking-tight">{stat.percentage !== null ? `${Math.round(stat.percentage)}%` : "—"}</span>
                   <span className="text-[9px] opacity-80">{stat.makes}/{stat.attempts}</span>
                 </div>
               </foreignObject>

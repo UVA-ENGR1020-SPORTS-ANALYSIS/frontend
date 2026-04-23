@@ -219,7 +219,16 @@ describe("getSessionDetails", () => {
         target_team: 2,
         status: "waiting",
       },
-      teams: [{ team_id: "team_1", player: [{ player_name: "Alice" }] }],
+      teams: [
+        {
+          team_id: "team_1",
+          is_ready: false,
+          round_1_finished: false,
+          round_2_finished: false,
+          banned_zone: null,
+          player: [{ player_id: "p1", player_name: "Alice" }],
+        },
+      ],
     };
     mockFetch.mockResolvedValue({
       ok: true,

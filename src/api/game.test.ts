@@ -18,7 +18,7 @@ describe("fetchTeamStatsAPI", () => {
   const roundNumber = 1;
 
   it("should successfully fetch team stats and return data", async () => {
-    const mockResponse = { team_id: "team_1", score: 10 };
+    const mockResponse: import("./game").TeamStatsResponse = { points: 10, raw_shots: [] };
     mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockResponse),
