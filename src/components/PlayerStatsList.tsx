@@ -20,7 +20,7 @@ export function PlayerStatsList({ players }: PlayerStatsListProps) {
         {players.map((p) => (
           <div
             key={p.player_id}
-            className="flex justify-between items-center px-3 py-2 rounded-xl bg-card border transition-colors hover:bg-muted/50"
+            className="flex justify-between items-center gap-4 px-3 py-2 rounded-xl bg-card border transition-colors hover:bg-muted/50"
           >
             <div className="flex items-center gap-2">
               <User className="size-3.5 text-muted-foreground" />
