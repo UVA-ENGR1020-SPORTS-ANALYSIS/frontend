@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup } from "@/components/ui/field";
 import { ArrowLeft } from "lucide-react";
 import { joinTeam, getSessionDetails } from "@/api/sessions";
+import { TabletopLogo } from "@/components/TabletopLogo";
 
 const nameSchema = z.object({
   members: z
@@ -83,7 +84,7 @@ export function JoinMembersPage() {
 
   return (
     <div className="flex h-screen flex-col items-center justify-center px-4">
-      <h1 className="mb-6 text-4xl font-bold">TABLETOP</h1>
+      <TabletopLogo className="mb-6" />
 
       <Card className="w-full max-w-xs py-4">
         <CardContent>

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/input-otp";
 import { ArrowLeft } from "lucide-react";
 import { validateSessionCode } from "@/api/sessions";
+import { TabletopLogo } from "@/components/TabletopLogo";
 
 export function JoinCodePage() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export function JoinCodePage() {
 
   return (
     <div className="flex h-screen flex-col items-center justify-center px-4">
-      <h1 className="mb-6 text-4xl font-bold">TABLETOP</h1>
+      <TabletopLogo className="mb-6" />
 
       <Card className="w-full max-w-xs py-4">
         <CardContent className="flex flex-col items-center gap-4">

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, ArrowLeft } from "lucide-react";
 import { createSession } from "@/api/sessions";
+import { TabletopLogo } from "@/components/TabletopLogo";
 
 type TeamCount = 1 | 2 | 4;
 
@@ -29,7 +30,7 @@ export function CreateTeamsPage() {
 
   return (
     <div className="flex h-screen flex-col items-center justify-center px-4">
-      <h1 className="mb-6 text-4xl font-bold">TABLETOP</h1>
+      <TabletopLogo className="mb-6" />
 
       <Card className="w-full max-w-xs py-4">
         <CardContent className="flex flex-col gap-3">

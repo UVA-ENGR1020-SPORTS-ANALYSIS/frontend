@@ -2,22 +2,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, LogIn } from "lucide-react";
-import basketballLogo from "@/assets/basketballtoplogo.png";
+import { TabletopLogo } from "@/components/TabletopLogo";
 
 export function HomePage() {
   const navigate = useNavigate();
 
   return (
     <div className="flex h-screen flex-col items-center justify-center px-4">
-      <h1 className="mb-1 flex items-center text-4xl font-black tracking-widest select-none">
-        <span>TABLET</span>
-        <img
-          src={basketballLogo}
-          alt="O"
-          className="inline-block h-[0.85em] w-[0.85em] object-contain align-[-0.1em] mx-[0.02em]"
-        />
-        <span>P</span>
-      </h1>
+      <TabletopLogo className="mb-1" />
       <p className="mb-6 text-[0.65rem] uppercase tracking-[0.25em] text-muted-foreground">
         Basketball Shot Tracker
       </p>
