@@ -148,10 +148,11 @@ export function StatsPage() {
             {players.map((player) => {
               const misses = player.total_attempts - player.total_makes;
               const pct =
-                player.shooting_pct ??
-                (player.total_attempts > 0
+                player.shooting_pct != null
+                  ? Math.round(player.shooting_pct)
+                  : player.total_attempts > 0
                   ? Math.round((player.total_makes / player.total_attempts) * 100)
-                  : null);
+                  : null;
 
               return (
                 <div key={player.player_id} className="rounded-xl border bg-card p-4 shadow-sm">

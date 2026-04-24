@@ -189,6 +189,23 @@ export function HalfCourt({
       ref={wrapperRef}
       className="relative shrink-0 select-none rounded-xl overflow-hidden border border-border/50 shadow-lg w-full max-w-lg mx-auto bg-card p-1"
     >
+      {/* ── Stats bar above court — only in interactive mode ── */}
+      {onShotPlaced && (
+        <div className="flex items-center justify-between px-3 py-2">
+          <div className="flex items-center gap-1.5 bg-green-500 text-white text-sm font-bold px-3 py-1 rounded-lg">
+            <span className="text-base">{makes}</span>
+            <span className="text-[10px] uppercase opacity-80">made</span>
+          </div>
+          <div className="text-foreground text-sm font-black px-3 py-1 rounded-lg border border-border bg-muted/50">
+            {attempts} shots
+          </div>
+          <div className="flex items-center gap-1.5 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-lg">
+            <span className="text-base">{misses}</span>
+            <span className="text-[10px] uppercase opacity-80">miss</span>
+          </div>
+        </div>
+      )}
+
       <svg
         ref={svgRef}
         width={IMG_W}
@@ -243,25 +260,6 @@ export function HalfCourt({
             opacity="0.85"
             style={{ pointerEvents: "none" }}
           />
-        )}
-
-        {/* ── Stats row (makes / total / misses) — only in interactive mode ── */}
-        {onShotPlaced && (
-          <foreignObject x="0" y={IMG_H - 48} width={IMG_W} height="48">
-            <div className="flex items-center justify-between px-4 h-full">
-              <div className="flex items-center gap-1.5 bg-green-500/90 text-white text-sm font-bold px-3 py-1.5 rounded-lg shadow-md">
-                <span className="text-lg">{makes}</span>
-                <span className="text-[10px] uppercase opacity-80">made</span>
-              </div>
-              <div className="bg-card text-foreground text-sm font-black px-3 py-1.5 rounded-lg border border-border shadow-md ring-1 ring-black/5">
-                {attempts} shots
-              </div>
-              <div className="flex items-center gap-1.5 bg-red-500/90 text-white text-sm font-bold px-3 py-1.5 rounded-lg shadow-md">
-                <span className="text-lg">{misses}</span>
-                <span className="text-[10px] uppercase opacity-80">miss</span>
-              </div>
-            </div>
-          </foreignObject>
         )}
 
         {/* Zone interaction layers */}
