@@ -95,6 +95,43 @@ export async function fetchTeamStatsAPI(teamId: string, roundNumber: number): Pr
   return response.json();
 }
 
+export interface TeamStatsTotalResponse {
+  team_id: string;
+  shots_taken: number;
+  points: number;
+  raw_shots: RawShot[];
+}
+
+export async function fetchTeamStatsTotalAPI(teamId: string): Promise<TeamStatsTotalResponse> {
+  const response = await apiFetch(`${BASE_URL}/api/game/team_stats_total/${teamId}`);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Failed to fetch team total stats");
+  }
+  return response.json();
+}
+
+export interface FinalResultsTeamEntry {
+  team_id: string;
+  shots_taken: number;
+  points: number;
+  raw_shots: RawShot[];
+}
+
+export interface FinalResultsResponse {
+  session_id: string;
+  teams: FinalResultsTeamEntry[];
+}
+
+export async function fetchFinalResultsAPI(sessionId: string): Promise<FinalResultsResponse> {
+  const response = await apiFetch(`${BASE_URL}/api/game/final_results/${sessionId}`);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Failed to fetch final results");
+  }
+  return response.json();
+}
+
 export async function banOpponentZoneAPI(data: BanZoneRequest) {
   const response = await apiFetch(`${BASE_URL}/api/game/ban`, {
     method: "POST",
