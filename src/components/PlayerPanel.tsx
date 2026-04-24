@@ -40,7 +40,7 @@ export function PlayerPanel({
               border-2 cursor-pointer
               ${
                 isActive
-                  ? "bg-red-700 border-red-500 text-white font-extrabold shadow-[0_0_16px_rgba(210,30,30,0.65)]"
+                  ? "bg-red-700 border-red-600 text-white font-extrabold"
                   : isDone
                   ? "bg-green-900/20 border-green-700/40 text-green-400 opacity-60"
                   : "bg-sky-400/80 border-sky-500 text-sky-950 hover:bg-sky-300"
