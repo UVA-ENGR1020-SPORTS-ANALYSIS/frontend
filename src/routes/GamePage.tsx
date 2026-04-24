@@ -165,8 +165,12 @@ export function GamePage() {
   const handleFinishRound = useCallback(async () => {
     setPhase("finishing");
     try {
-      // Clear any pre-existing shots for this round (handles replays from same session)
-      await deleteRoundShotsAPI(teamId, sessionId, currentRound);
+      // Best-effort clear — don't abort if this fails
+      try {
+        await deleteRoundShotsAPI(teamId, sessionId, currentRound);
+      } catch (err) {
+        console.warn("Could not clear existing round shots:", err);
+      }
 
       await Promise.all(
         shots.map((shot) =>
