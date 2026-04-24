@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { HalfCourt, type ShotDot } from "@/components/HalfCourt";
 import { PlayerPanel } from "@/components/PlayerPanel";
 import { getSessionDetails } from "@/api/sessions";
-import { submitShotAPI, finishRoundAPI } from "@/api/game";
+import { submitShotAPI, finishRoundAPI, deleteShotAPI, deleteRoundShotsAPI } from "@/api/game";
 
 // ── Constants ──
 const SHOTS_PER_PLAYER = 5;
@@ -44,6 +44,8 @@ export function GamePage() {
   const [courtVisible, setCourtVisible] = useState(false);
   const courtContainerRef = useRef<HTMLDivElement>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks backend shot_ids in the same order as the `shots` array
+  const shotIdsRef = useRef<string[]>([]);
 
   // ── Load session data ──
   useEffect(() => {
@@ -126,7 +128,7 @@ export function GamePage() {
         [activePlayer.player_id]: newCount,
       }));
 
-      // Submit to backend (fire and forget, don't block UI)
+      // Submit to backend — store returned shot_id for undo/reset
       submitShotAPI({
         player_id: activePlayer.player_id,
         team_id: teamId,
@@ -134,6 +136,8 @@ export function GamePage() {
         round_number: currentRound,
         zone,
         shot_made: made,
+      }).then((res) => {
+        shotIdsRef.current.push(res.shot_id);
       }).catch((err) => console.error("Failed to record shot:", err));
 
       // Auto-advance after 5 shots
@@ -201,6 +205,12 @@ export function GamePage() {
     const lastShot = shots[shots.length - 1];
     const removedPlayerId = lastShot.playerId;
 
+    // Delete from backend before updating local state
+    const shotId = shotIdsRef.current.pop();
+    if (shotId) {
+      deleteShotAPI(shotId).catch((err) => console.error("Failed to delete shot:", err));
+    }
+
     setShots((prev) => prev.slice(0, -1));
     setShotCounts((prev) => ({
       ...prev,
@@ -215,12 +225,19 @@ export function GamePage() {
     }
   }, [shots, players]);
 
-  // ── Reset (test button) ──
+  // ── Reset ──
   const handleReset = useCallback(() => {
     if (advanceTimerRef.current !== null) {
       clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = null;
     }
+    // Clear all round shots from backend, then wipe the ref
+    if (teamId && sessionId) {
+      deleteRoundShotsAPI(teamId, sessionId, currentRound).catch((err) =>
+        console.error("Failed to delete round shots:", err)
+      );
+    }
+    shotIdsRef.current = [];
     setShots([]);
     setShotCounts({});
     setActivePlayerIndex(0);
@@ -230,7 +247,7 @@ export function GamePage() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setCourtVisible(true));
     });
-  }, []);
+  }, [teamId, sessionId, currentRound]);
 
   // ── Loading state ──
   if (phase === "loading") {

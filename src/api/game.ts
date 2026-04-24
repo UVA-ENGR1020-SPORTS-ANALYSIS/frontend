@@ -132,6 +132,31 @@ export async function fetchFinalResultsAPI(sessionId: string): Promise<FinalResu
   return response.json();
 }
 
+export async function deleteShotAPI(shotId: string): Promise<void> {
+  const response = await apiFetch(`${BASE_URL}/api/game/shot/${shotId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Failed to delete shot");
+  }
+}
+
+export async function deleteRoundShotsAPI(
+  teamId: string,
+  sessionId: string,
+  roundNumber: number
+): Promise<void> {
+  const response = await apiFetch(
+    `${BASE_URL}/api/game/shots/${teamId}/${sessionId}/${roundNumber}`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Failed to delete round shots");
+  }
+}
+
 export async function banOpponentZoneAPI(data: BanZoneRequest) {
   const response = await apiFetch(`${BASE_URL}/api/game/ban`, {
     method: "POST",
