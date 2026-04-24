@@ -21,7 +21,7 @@ const HOW_TO_PLAY = [
     step: "3",
     icon: Trophy,
     title: "Ban & Win",
-    body: "After Round 1, ban an opponent's zone. Play Round 2 — the team with the most total points wins.",
+    body: "After Round 1, ban an opponent's zone. Play Round 2, and the team with the most total points wins.",
   },
 ];
 
@@ -29,8 +29,8 @@ export function HomePage() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-4 py-10">
-      <div className="flex flex-col items-center flex-1 justify-center w-full">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10 gap-10">
+      <div className="flex flex-col items-center w-full">
         <TabletopLogo className="mb-1" />
         <p className="mb-6 text-[0.65rem] uppercase tracking-[0.25em] text-muted-foreground">
           Basketball Shot Tracker
@@ -63,7 +63,7 @@ export function HomePage() {
         </Card>
       </div>
 
-      <section className="w-full max-w-3xl mt-16">
+      <section className="w-full max-w-3xl">
         <h2 className="text-center text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground mb-5">
           How to Play
         </h2>
