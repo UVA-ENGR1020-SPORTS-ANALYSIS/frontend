@@ -50,7 +50,7 @@ const ZONE_CENTERS: Record<number, { x: number; y: number }> = {
 };
 
 function getBadgeColor(percentage: number | null, attempts: number) {
-  if (attempts === 0 || percentage === null) return "hsl(var(--muted))";
+  if (attempts === 0 || percentage === null) return "hsl(220 9% 46%)"; // solid slate gray
   if (percentage >= 50) return "hsl(142 71% 45%)";
   if (percentage >= 25) return "hsl(48 96% 53%)";
   return "hsl(0 84% 60%)";
@@ -304,7 +304,7 @@ export function HalfCourt({
                 style={{ cursor: interactiveBanMode ? "pointer" : "default" }}
               >
                 <div
-                  className="flex flex-col items-center justify-center w-full h-full rounded-lg shadow-lg border border-white/40 text-white font-black leading-tight backdrop-blur-sm transition-transform hover:scale-110 active:scale-95"
+                  className="flex flex-col items-center justify-center w-full h-full rounded-lg shadow-md border border-black/10 text-white font-black leading-tight transition-transform hover:scale-110 active:scale-95"
                   style={{ backgroundColor: color }}
                 >
                   <span className="text-lg tracking-tight">{stat.percentage !== null ? `${Math.round(stat.percentage)}%` : "—"}</span>
