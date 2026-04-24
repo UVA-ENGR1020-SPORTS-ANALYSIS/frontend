@@ -7,7 +7,6 @@ import { PlayerStatsList } from "@/components/PlayerStatsList";
 import { fetchTeamStatsAPI, fetchOpponentStatsAPI } from "@/api/game";
 import type { RawShot } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
-import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
 
 export function ResultsPage() {
   const { sessionCode } = useParams<{ sessionCode: string }>();
@@ -22,7 +21,16 @@ export function ResultsPage() {
   const [sessionId, setSessionId] = useState("");
   const [teamId, setTeamId] = useState("");
   const [opponentReady, setOpponentReady] = useState(false);
-  const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
+
+  interface RoundPlayerStat {
+    player_id: string;
+    player_name: string;
+    total_makes: number;
+    total_attempts: number;
+    total_points: number;
+    shooting_pct: number;
+  }
+  const [playerStats, setPlayerStats] = useState<RoundPlayerStat[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -31,15 +39,15 @@ export function ResultsPage() {
         if (!tId || !sessionCode) throw new Error("Missing session or team info");
         setTeamId(tId);
 
-        const details = await getSessionDetails(sessionCode);
+        const [details, stats] = await Promise.all([
+          getSessionDetails(sessionCode),
+          fetchTeamStatsAPI(tId, 1),
+        ]);
         setTargetTeam(details.session.target_team);
         setSessionId(details.session.session_id);
-
-        // Fetch round 1 stats for our team
-        const stats = await fetchTeamStatsAPI(tId, 1);
         setTotalPoints(stats.points);
 
-        // Build zone stats in a single pass
+        // Build zone stats from round-specific raw_shots
         const zStats = stats.raw_shots.reduce((acc: Record<number, ZoneStat>, s: RawShot) => {
           const z = s.zone;
           if (!acc[z]) acc[z] = { makes: 0, attempts: 0, percentage: 0 };
@@ -52,9 +60,31 @@ export function ResultsPage() {
         ) as Record<number, ZoneStat>);
         setZoneStats(zStats);
 
-        // Fetch per-player stats
-        const { players } = await fetchTeamPlayers(tId);
-        setPlayerStats(players);
+        // Build per-player stats from the same raw_shots — consistent with heatmap
+        const ourTeam = details.teams.find((t) => t.team_id === tId);
+        const nameMap = new Map(
+          (ourTeam?.player ?? []).map((p) => [p.player_id, p.player_name])
+        );
+        const perPlayer = new Map<string, { makes: number; attempts: number; points: number }>();
+        for (const s of stats.raw_shots) {
+          const pid = s.shot_player_id;
+          if (!pid) continue;
+          const cur = perPlayer.get(pid) ?? { makes: 0, attempts: 0, points: 0 };
+          cur.attempts += 1;
+          if (s.shot_made) cur.makes += 1;
+          cur.points += s.points ?? 0;
+          perPlayer.set(pid, cur);
+        }
+        setPlayerStats(
+          Array.from(perPlayer.entries()).map(([pid, s]) => ({
+            player_id: pid,
+            player_name: nameMap.get(pid) ?? pid,
+            total_makes: s.makes,
+            total_attempts: s.attempts,
+            total_points: s.points,
+            shooting_pct: s.attempts > 0 ? Math.round((s.makes / s.attempts) * 100) : 0,
+          }))
+        );
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load stats");
       } finally {

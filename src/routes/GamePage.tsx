@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { HalfCourt, type ShotDot } from "@/components/HalfCourt";
 import { PlayerPanel } from "@/components/PlayerPanel";
 import { getSessionDetails } from "@/api/sessions";
-import { submitShotAPI, finishRoundAPI } from "@/api/game";
+import { submitShotAPI, finishRoundAPI, deleteRoundShotsAPI } from "@/api/game";
 
 // ── Constants ──
 const SHOTS_PER_PLAYER = 5;
@@ -165,6 +165,9 @@ export function GamePage() {
   const handleFinishRound = useCallback(async () => {
     setPhase("finishing");
     try {
+      // Clear any pre-existing shots for this round (handles replays from same session)
+      await deleteRoundShotsAPI(teamId, sessionId, currentRound);
+
       await Promise.all(
         shots.map((shot) =>
           submitShotAPI({

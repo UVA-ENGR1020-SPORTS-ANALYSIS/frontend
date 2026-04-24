@@ -38,6 +38,8 @@ export interface BanZoneRequest {
 export interface RawShot {
   zone: number;
   shot_made: boolean;
+  shot_player_id?: string;
+  points?: number;
 }
 
 export interface TeamStatsResponse {

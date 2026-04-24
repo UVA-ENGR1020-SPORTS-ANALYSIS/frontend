@@ -1,8 +1,16 @@
 import { User } from "lucide-react";
-import type { PlayerStats } from "@/api/players";
+
+interface PlayerStatEntry {
+  player_id: string;
+  player_name: string;
+  total_points: number;
+  total_makes: number;
+  total_attempts: number;
+  shooting_pct: number;
+}
 
 interface PlayerStatsListProps {
-  players: PlayerStats[];
+  players: PlayerStatEntry[];
 }
 
 /**
