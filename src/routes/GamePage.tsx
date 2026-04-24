@@ -43,6 +43,7 @@ export function GamePage() {
   // Animation
   const [courtVisible, setCourtVisible] = useState(false);
   const courtContainerRef = useRef<HTMLDivElement>(null);
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Load session data ──
   useEffect(() => {
@@ -144,7 +145,7 @@ export function GamePage() {
         });
         if (nextIndex !== null) {
           // Small delay so user sees the last dot land
-          setTimeout(() => setActivePlayerIndex(nextIndex), 400);
+          advanceTimerRef.current = setTimeout(() => setActivePlayerIndex(nextIndex), 400);
         }
       }
     },
@@ -192,6 +193,11 @@ export function GamePage() {
   const handleUndo = useCallback(() => {
     if (shots.length === 0) return;
 
+    if (advanceTimerRef.current !== null) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+
     const lastShot = shots[shots.length - 1];
     const removedPlayerId = lastShot.playerId;
 
@@ -211,6 +217,10 @@ export function GamePage() {
 
   // ── Reset (test button) ──
   const handleReset = useCallback(() => {
+    if (advanceTimerRef.current !== null) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
     setShots([]);
     setShotCounts({});
     setActivePlayerIndex(0);
