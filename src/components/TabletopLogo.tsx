@@ -17,7 +17,7 @@ export function TabletopLogo({ className }: TabletopLogoProps) {
       <img
         src={basketballLogo}
         alt="O"
-        className="h-[1.1em] w-[1.1em] object-contain ml-[0.02em] mr-[0.07em]"
+        className="h-[1.1em] w-[1.1em] object-contain ml-[0.02em] mr-[0.04em]"
       />
       {/* letter-spacing:0 removes the trailing space that shifts the title right */}
       <span className="[letter-spacing:0]">P</span>
