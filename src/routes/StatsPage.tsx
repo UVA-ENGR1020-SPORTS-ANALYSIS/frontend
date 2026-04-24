@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, ArrowLeft, User, Target, TrendingUp, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
+import { fetchTeamPlayers } from "@/api/players";
 import { fetchTeamStatsTotalAPI } from "@/api/game";
 import type { RawShot } from "@/api/game";
 import { HalfCourt, type ZoneStat } from "@/components/HalfCourt";
@@ -45,9 +45,18 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
 export function StatsPage() {
   const navigate = useNavigate();
 
+  interface PlayerStatEntry {
+    player_id: string;
+    player_name: string;
+    total_makes: number;
+    total_attempts: number;
+    total_points: number;
+    shooting_pct: number | null;
+  }
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [players, setPlayers] = useState<PlayerStats[]>([]);
+  const [playerStats, setPlayerStats] = useState<PlayerStatEntry[]>([]);
   const [zoneStats, setZoneStats] = useState<Record<number, ZoneStat>>({});
   const [activeTab, setActiveTab] = useState<"players" | "zones" | "charts">("players");
 
@@ -57,34 +66,58 @@ export function StatsPage() {
         const teamId = sessionStorage.getItem("currentTeamId");
         if (!teamId) throw new Error("No team found");
 
-        const { players: fetched } = await fetchTeamPlayers(teamId);
-        setPlayers(fetched);
+        const [{ players: fetched }, stats] = await Promise.all([
+          fetchTeamPlayers(teamId),
+          fetchTeamStatsTotalAPI(teamId),
+        ]);
 
-        try {
-          const stats = await fetchTeamStatsTotalAPI(teamId);
-          if (stats?.raw_shots) {
-            const computed: Record<number, ZoneStat> = {};
-            for (let i = 1; i <= 6; i++) {
-              computed[i] = { makes: 0, attempts: 0, percentage: null };
-            }
-            stats.raw_shots.forEach((s: RawShot) => {
-              const z = s.zone;
-              if (computed[z]) {
-                computed[z].attempts += 1;
-                if (s.shot_made) computed[z].makes += 1;
-              }
-            });
-            for (let i = 1; i <= 6; i++) {
-              if (computed[i].attempts > 0) {
-                computed[i].percentage = Math.round(
-                  (computed[i].makes / computed[i].attempts) * 100
-                );
-              }
-            }
-            setZoneStats(computed);
+        const nameMap = new Map(fetched.map((p) => [p.player_id, p.player_name]));
+
+        if (stats?.raw_shots) {
+          // Zone stats
+          const computed: Record<number, ZoneStat> = {};
+          for (let i = 1; i <= 6; i++) {
+            computed[i] = { makes: 0, attempts: 0, percentage: null };
           }
-        } catch {
-          // zone data is optional
+
+          // Per-player stats from raw_shots (same source as zone data)
+          const perPlayer = new Map<string, { makes: number; attempts: number; points: number }>();
+
+          stats.raw_shots.forEach((s: RawShot) => {
+            const z = s.zone;
+            if (computed[z]) {
+              computed[z].attempts += 1;
+              if (s.shot_made) computed[z].makes += 1;
+            }
+            const pid = s.shot_player_id;
+            if (pid) {
+              const cur = perPlayer.get(pid) ?? { makes: 0, attempts: 0, points: 0 };
+              cur.attempts += 1;
+              if (s.shot_made) cur.makes += 1;
+              cur.points += s.points ?? 0;
+              perPlayer.set(pid, cur);
+            }
+          });
+
+          for (let i = 1; i <= 6; i++) {
+            if (computed[i].attempts > 0) {
+              computed[i].percentage = Math.round(
+                (computed[i].makes / computed[i].attempts) * 100
+              );
+            }
+          }
+          setZoneStats(computed);
+
+          setPlayerStats(
+            Array.from(perPlayer.entries()).map(([pid, s]) => ({
+              player_id: pid,
+              player_name: nameMap.get(pid) ?? pid,
+              total_makes: s.makes,
+              total_attempts: s.attempts,
+              total_points: s.points,
+              shooting_pct: s.attempts > 0 ? Math.round((s.makes / s.attempts) * 100) : null,
+            }))
+          );
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load stats");
@@ -113,10 +146,10 @@ export function StatsPage() {
   }
 
   const hasZones = Object.values(zoneStats).some((z) => z.attempts > 0);
-  const teamMakes = players.reduce((s, p) => s + p.total_makes, 0);
-  const teamAttempts = players.reduce((s, p) => s + p.total_attempts, 0);
+  const teamMakes = playerStats.reduce((s, p) => s + p.total_makes, 0);
+  const teamAttempts = playerStats.reduce((s, p) => s + p.total_attempts, 0);
   const teamMisses = teamAttempts - teamMakes;
-  const teamPoints = players.reduce((s, p) => s + (p.total_points ?? 0), 0);
+  const teamPoints = playerStats.reduce((s, p) => s + (p.total_points ?? 0), 0);
 
   return (
     <div className="min-h-dvh bg-background p-4 pb-8">
@@ -145,14 +178,9 @@ export function StatsPage() {
         {/* ── PLAYERS TAB ── */}
         {activeTab === "players" && (
           <div className="space-y-4">
-            {players.map((player) => {
+            {playerStats.map((player) => {
               const misses = player.total_attempts - player.total_makes;
-              const pct =
-                player.shooting_pct != null
-                  ? Math.round(player.shooting_pct)
-                  : player.total_attempts > 0
-                  ? Math.round((player.total_makes / player.total_attempts) * 100)
-                  : null;
+              const pct = player.shooting_pct;
 
               return (
                 <div key={player.player_id} className="rounded-xl border bg-card p-4 shadow-sm">
@@ -379,17 +407,17 @@ export function StatsPage() {
               </p>
               <Bar
                 data={{
-                  labels: players.map((p) => p.player_name),
+                  labels: playerStats.map((p) => p.player_name),
                   datasets: [
                     {
                       label: "Makes",
-                      data: players.map((p) => p.total_makes),
+                      data: playerStats.map((p) => p.total_makes),
                       backgroundColor: "#22c55ecc",
                       borderRadius: 4,
                     },
                     {
                       label: "Misses",
-                      data: players.map((p) => p.total_attempts - p.total_makes),
+                      data: playerStats.map((p) => p.total_attempts - p.total_makes),
                       backgroundColor: "#ef4444cc",
                       borderRadius: 4,
                     },
@@ -423,7 +451,7 @@ export function StatsPage() {
         )}
 
         {/* Team Summary — always visible */}
-        {players.length > 0 && (
+        {playerStats.length > 0 && (
           <div className="mt-6 rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
               <TrendingUp className="size-3.5" />
