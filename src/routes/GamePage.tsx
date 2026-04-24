@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, RotateCcw, Trophy } from "lucide-react";
+import { Loader2, RotateCcw, Undo2, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HalfCourt, type ShotDot } from "@/components/HalfCourt";
 import { PlayerPanel } from "@/components/PlayerPanel";
@@ -188,6 +188,27 @@ export function GamePage() {
     }
   }, [teamId, currentRound, navigate, sessionCode]);
 
+  // ── Undo last shot ──
+  const handleUndo = useCallback(() => {
+    if (shots.length === 0) return;
+
+    const lastShot = shots[shots.length - 1];
+    const removedPlayerId = lastShot.playerId;
+
+    setShots((prev) => prev.slice(0, -1));
+    setShotCounts((prev) => ({
+      ...prev,
+      [removedPlayerId]: Math.max(0, (prev[removedPlayerId] || 0) - 1),
+    }));
+
+    const newActiveIndex = players.findIndex(
+      (p) => p.player_id === removedPlayerId
+    );
+    if (newActiveIndex !== -1) {
+      setActivePlayerIndex(newActiveIndex);
+    }
+  }, [shots, players]);
+
   // ── Reset (test button) ──
   const handleReset = useCallback(() => {
     setShots([]);
@@ -268,6 +289,17 @@ export function GamePage() {
             Finish Round
           </Button>
         )}
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-muted-foreground hover:text-foreground"
+          onClick={handleUndo}
+          disabled={shots.length === 0 || phase === "finishing"}
+        >
+          <Undo2 className="size-3.5" />
+          Undo
+        </Button>
 
         <Button
           variant="ghost"
