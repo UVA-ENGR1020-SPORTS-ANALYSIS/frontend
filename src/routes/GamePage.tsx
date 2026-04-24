@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { HalfCourt, type ShotDot } from "@/components/HalfCourt";
 import { PlayerPanel } from "@/components/PlayerPanel";
 import { getSessionDetails } from "@/api/sessions";
-import { submitShotAPI, finishRoundAPI, deleteShotAPI, deleteRoundShotsAPI } from "@/api/game";
+import { submitShotAPI, finishRoundAPI } from "@/api/game";
 
 // ── Constants ──
 const SHOTS_PER_PLAYER = 5;
@@ -35,7 +35,7 @@ export function GamePage() {
   const [shots, setShots] = useState<ShotDot[]>([]);
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [shotCounts, setShotCounts] = useState<Record<string, number>>({});
-  
+
   // Game progression specific
   const [currentRound, setCurrentRound] = useState(1);
   const [bannedZone, setBannedZone] = useState<number | null>(null);
@@ -44,8 +44,6 @@ export function GamePage() {
   const [courtVisible, setCourtVisible] = useState(false);
   const courtContainerRef = useRef<HTMLDivElement>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Tracks backend shot_ids in the same order as the `shots` array
-  const shotIdsRef = useRef<string[]>([]);
 
   // ── Load session data ──
   useEffect(() => {
@@ -72,7 +70,7 @@ export function GamePage() {
           } else {
             setCurrentRound(1);
           }
-          
+
           if (ourTeam.player) {
             setPlayers(
               ourTeam.player.map((p) => ({
@@ -106,9 +104,9 @@ export function GamePage() {
     players.length > 0 &&
     players.every((p) => (shotCounts[p.player_id] || 0) >= SHOTS_PER_PLAYER);
 
-  // ── Shot handler ──
+  // ── Shot handler — local state only, backend receives shots on Finish Round ──
   const handleShotPlaced = useCallback(
-    async (svgX: number, svgY: number, zone: number, made: boolean) => {
+    (svgX: number, svgY: number, zone: number, made: boolean) => {
       if (!activePlayer || activePlayerShotCount >= SHOTS_PER_PLAYER) return;
 
       const newShot: ShotDot = {
@@ -128,32 +126,18 @@ export function GamePage() {
         [activePlayer.player_id]: newCount,
       }));
 
-      // Submit to backend — store returned shot_id for undo/reset
-      submitShotAPI({
-        player_id: activePlayer.player_id,
-        team_id: teamId,
-        session_id: sessionId,
-        round_number: currentRound,
-        zone,
-        shot_made: made,
-      }).then((res) => {
-        shotIdsRef.current.push(res.shot_id);
-      }).catch((err) => console.error("Failed to record shot:", err));
-
       // Auto-advance after 5 shots
       if (newCount >= SHOTS_PER_PLAYER) {
-        // Find next player who hasn't finished
         const nextIndex = findNextPlayer(activePlayerIndex, players, {
           ...shotCounts,
           [activePlayer.player_id]: newCount,
         });
         if (nextIndex !== null) {
-          // Small delay so user sees the last dot land
           advanceTimerRef.current = setTimeout(() => setActivePlayerIndex(nextIndex), 400);
         }
       }
     },
-    [activePlayer, activePlayerIndex, activePlayerShotCount, players, shotCounts, teamId, sessionId, currentRound]
+    [activePlayer, activePlayerIndex, activePlayerShotCount, players, shotCounts]
   );
 
   // ── Player switching ──
@@ -177,10 +161,22 @@ export function GamePage() {
     [activePlayerIndex, activePlayer, players, shotCounts]
   );
 
-  // ── Finish round ──
+  // ── Finish round — submit all local shots to backend, then mark round done ──
   const handleFinishRound = useCallback(async () => {
     setPhase("finishing");
     try {
+      await Promise.all(
+        shots.map((shot) =>
+          submitShotAPI({
+            player_id: shot.playerId,
+            team_id: teamId,
+            session_id: sessionId,
+            round_number: currentRound,
+            zone: shot.zone,
+            shot_made: shot.made,
+          })
+        )
+      );
       await finishRoundAPI({ team_id: teamId, round_number: currentRound });
       if (currentRound === 2) {
         navigate(`/session/${sessionCode}/final`);
@@ -191,9 +187,9 @@ export function GamePage() {
       console.error("Failed to finish round:", err);
       setPhase("playing");
     }
-  }, [teamId, currentRound, navigate, sessionCode]);
+  }, [shots, teamId, sessionId, currentRound, navigate, sessionCode]);
 
-  // ── Undo last shot ──
+  // ── Undo last shot — local state only ──
   const handleUndo = useCallback(() => {
     if (shots.length === 0) return;
 
@@ -204,12 +200,6 @@ export function GamePage() {
 
     const lastShot = shots[shots.length - 1];
     const removedPlayerId = lastShot.playerId;
-
-    // Delete from backend before updating local state
-    const shotId = shotIdsRef.current.pop();
-    if (shotId) {
-      deleteShotAPI(shotId).catch((err) => console.error("Failed to delete shot:", err));
-    }
 
     setShots((prev) => prev.slice(0, -1));
     setShotCounts((prev) => ({
@@ -225,19 +215,12 @@ export function GamePage() {
     }
   }, [shots, players]);
 
-  // ── Reset ──
+  // ── Reset — local state only ──
   const handleReset = useCallback(() => {
     if (advanceTimerRef.current !== null) {
       clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = null;
     }
-    // Clear all round shots from backend, then wipe the ref
-    if (teamId && sessionId) {
-      deleteRoundShotsAPI(teamId, sessionId, currentRound).catch((err) =>
-        console.error("Failed to delete round shots:", err)
-      );
-    }
-    shotIdsRef.current = [];
     setShots([]);
     setShotCounts({});
     setActivePlayerIndex(0);
@@ -247,7 +230,7 @@ export function GamePage() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setCourtVisible(true));
     });
-  }, [teamId, sessionId, currentRound]);
+  }, []);
 
   // ── Loading state ──
   if (phase === "loading") {
