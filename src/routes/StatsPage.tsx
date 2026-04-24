@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Loader2, ArrowLeft, User, Target, TrendingUp, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
-import { fetchTeamStatsAPI } from "@/api/game";
+import { fetchTeamStatsTotalAPI } from "@/api/game";
 import type { RawShot } from "@/api/game";
 import { HalfCourt, type ZoneStat } from "@/components/HalfCourt";
 import {
@@ -61,7 +61,7 @@ export function StatsPage() {
         setPlayers(fetched);
 
         try {
-          const stats = await fetchTeamStatsAPI(teamId, 1);
+          const stats = await fetchTeamStatsTotalAPI(teamId);
           if (stats?.raw_shots) {
             const computed: Record<number, ZoneStat> = {};
             for (let i = 1; i <= 6; i++) {
@@ -133,7 +133,7 @@ export function StatsPage() {
 
         <div className="mb-5">
           <h1 className="text-2xl font-black tracking-tight">Team Stats</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Round 1 performance breakdown</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Full game performance breakdown</p>
         </div>
 
         <div className="flex gap-1 p-1 rounded-xl bg-muted/50 mb-5">
