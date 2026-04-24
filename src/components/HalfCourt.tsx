@@ -32,8 +32,12 @@ interface HalfCourtProps {
 const IMG_W = 512;
 const IMG_H = 479;
 
-// Two-point area path (mirrors the SVG's 2pt region exactly)
+// Two-point area path (mirrors the SVG's 2pt region exactly) — clockwise
 const INSIDE_ARC_PATH = "M33 1 H479 V140 C448 219 365 294 256 294 C147 294 64 219 33 140 Z";
+// Same shape, counter-clockwise — used to punch a hole in the outside-arc clip
+// via non-zero winding instead of relying on fill-rule="evenodd".
+const INSIDE_ARC_PATH_REVERSED =
+  "M33,1 L33,140 C64,219 147,294 256,294 C365,294 448,219 479,140 L479,1 Z";
 
 // Zone centers — visually matched to the court SVG
 const ZONE_CENTERS: Record<number, { x: number; y: number }> = {
@@ -181,13 +185,16 @@ export function HalfCourt({
   const misses = attempts - makes;
 
   return (
-    <div ref={wrapperRef} className="relative flex-shrink-0 select-none">
+    <div
+      ref={wrapperRef}
+      className="relative shrink-0 select-none rounded-xl overflow-hidden border border-border/50 shadow-lg w-full max-w-lg mx-auto"
+    >
       <svg
         ref={svgRef}
         width={IMG_W}
         height={IMG_H}
         viewBox={`0 0 ${IMG_W} ${IMG_H}`}
-        className="block rounded-xl border border-border/50 w-full max-w-[512px] shadow-lg"
+        className="block w-full h-auto"
         style={{ cursor: disabled ? "default" : "crosshair" }}
       >
         <defs>
@@ -200,11 +207,9 @@ export function HalfCourt({
             <path d={INSIDE_ARC_PATH} />
           </clipPath>
           <clipPath id="outsideArcClip">
-            {/* Everything in the viewBox minus the 2pt area (evenodd fill rule punches the inner shape out). */}
-            <path
-              fillRule="evenodd"
-              d={`M0,0 H${IMG_W} V${IMG_H} H0 Z ${INSIDE_ARC_PATH}`}
-            />
+            {/* Outer rect (clockwise) + reversed inner shape (counter-clockwise) → default non-zero
+               winding naturally fills the area outside the 2pt region. */}
+            <path d={`M0,0 H${IMG_W} V${IMG_H} H0 Z ${INSIDE_ARC_PATH_REVERSED}`} />
           </clipPath>
         </defs>
 
