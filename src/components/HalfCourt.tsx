@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import courtImage from "@/assets/basketballcourt.png";
+import courtImage from "@/assets/court.svg";
 
 // ── Types ──
 
@@ -28,18 +28,21 @@ interface HalfCourtProps {
   onZoneClick?: (zone: number) => void;
 }
 
-// ── Image dimensions (matching the 512x479 PNG) ──
+// ── Image dimensions (matching the 512x479 court SVG) ──
 const IMG_W = 512;
 const IMG_H = 479;
 
-// Zone centers — visually matched to the court PNG
+// Two-point area path (mirrors the SVG's 2pt region exactly)
+const INSIDE_ARC_PATH = "M33 1 H479 V140 C448 219 365 294 256 294 C147 294 64 219 33 140 Z";
+
+// Zone centers — visually matched to the court SVG
 const ZONE_CENTERS: Record<number, { x: number; y: number }> = {
-  1: { x: 256, y: 100 },
-  2: { x: 100, y: 150 },
-  3: { x: 412, y: 150 },
-  4: { x: 70,  y: 370 },
-  5: { x: 256, y: 390 },
-  6: { x: 442, y: 370 },
+  1: { x: 257, y: 100 },
+  2: { x: 106, y: 120 },
+  3: { x: 399, y: 120 },
+  4: { x: 70,  y: 380 },
+  5: { x: 256, y: 400 },
+  6: { x: 440, y: 380 },
 };
 
 function getBadgeColor(percentage: number | null, attempts: number) {
@@ -51,20 +54,24 @@ function getBadgeColor(percentage: number | null, attempts: number) {
 
 
 
-// ── Zone interaction layers mapped to the 512x479 court image ──
+// ── Zone interaction layers mapped to the 512x479 court SVG ──
+// Key rect: x=175.5, y=0, w=161, h=194 (matches <rect> in court.svg)
+// Zone 4/5 divider: (147, 268.5) → (82, 478)
+// Zone 5/6 divider: (365, 268.5) → (430, 478)
+// Center below-key divider: (256, 194) → (256, 294)
 const ZONE_INTERACTION_LAYERS = [
-  // Zone 1 — paint/key area (blue rectangle)
-  { z: 1, type: "rect" as const, x: 185, y: 0, width: 142, height: 185, clip: undefined, points: undefined },
-  // Zone 2 — inside arc, left of key
-  { z: 2, type: "polygon" as const, points: "25,0 185,0 185,185 256,185 256,320 25,320", clip: "url(#insideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
-  // Zone 3 — inside arc, right of key
-  { z: 3, type: "polygon" as const, points: "487,0 327,0 327,185 256,185 256,320 487,320", clip: "url(#insideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
-  // Zone 4 — outside arc, left corner
-  { z: 4, type: "polygon" as const, points: "25,120 185,265 25,479", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
-  // Zone 5 — outside arc, center
-  { z: 5, type: "polygon" as const, points: "185,265 327,265 487,479 25,479", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
-  // Zone 6 — outside arc, right corner
-  { z: 6, type: "polygon" as const, points: "487,120 327,265 487,479", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  // Zone 1 — paint/key area
+  { z: 1, type: "rect" as const, x: 175.5, y: 0, width: 161, height: 194, clip: undefined, points: undefined },
+  // Zone 2 — inside arc, left of key (clipped to 2pt area)
+  { z: 2, type: "polygon" as const, points: "0,0 175.5,0 175.5,194 256,194 256,294 0,294", clip: "url(#insideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  // Zone 3 — inside arc, right of key (clipped to 2pt area)
+  { z: 3, type: "polygon" as const, points: "512,0 336.5,0 336.5,194 256,194 256,294 512,294", clip: "url(#insideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  // Zone 4 — outside arc, left wedge (clipped to outside of 2pt area)
+  { z: 4, type: "polygon" as const, points: "0,0 256,0 256,294 147,268.5 82,478 0,479", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  // Zone 5 — outside arc, middle trapezoid (between dividers)
+  { z: 5, type: "polygon" as const, points: "147,268.5 365,268.5 430,478 82,478", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
+  // Zone 6 — outside arc, right wedge (clipped to outside of 2pt area)
+  { z: 6, type: "polygon" as const, points: "512,0 256,0 256,294 365,268.5 430,478 512,479", clip: "url(#outsideArcClip)", x: undefined, y: undefined, width: undefined, height: undefined },
 ] as const;
 
 // ── Component ──
@@ -190,10 +197,14 @@ export function HalfCourt({
             <line x1="0" y1="0" x2="0" y2="24" stroke="rgba(239, 68, 68, 0.25)" strokeWidth="6" />
           </pattern>
           <clipPath id="insideArcClip">
-            <path d={`M25,0 L487,0 L487,120 A240,240 0 0,1 25,120 Z`} />
+            <path d={INSIDE_ARC_PATH} />
           </clipPath>
           <clipPath id="outsideArcClip">
-            <path d={`M25,120 A240,240 0 0,0 487,120 L487,479 L25,479 Z`} />
+            {/* Everything in the viewBox minus the 2pt area (evenodd fill rule punches the inner shape out). */}
+            <path
+              fillRule="evenodd"
+              d={`M0,0 H${IMG_W} V${IMG_H} H0 Z ${INSIDE_ARC_PATH}`}
+            />
           </clipPath>
         </defs>
 
