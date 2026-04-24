@@ -6,7 +6,7 @@ import { HalfCourt, type ZoneStat } from "@/components/HalfCourt";
 import { ResultsScoreCard } from "@/components/ResultsScoreCard";
 import { PlayerStatsList } from "@/components/PlayerStatsList";
 import { LeaderboardList } from "@/components/LeaderboardList";
-import { fetchFinalResultsAPI, type RawShot } from "@/api/game";
+import { fetchFinalResultsAPI, fetchTeamStatsAPI, type RawShot } from "@/api/game";
 import { getSessionDetails, type Team } from "@/api/sessions";
 import { fetchTeamPlayers, type PlayerStats } from "@/api/players";
 
@@ -93,12 +93,15 @@ export function FinalResultsPage() {
           }
         }
 
-        const final = await fetchFinalResultsAPI(details.session.session_id);
+        const [final, round2Stats] = await Promise.all([
+          fetchFinalResultsAPI(details.session.session_id),
+          fetchTeamStatsAPI(teamId, 2).catch(() => ({ points: 0, raw_shots: [] as RawShot[] })),
+        ]);
         const myEntry = final.teams.find((t) => t.team_id === teamId);
         const opponents = final.teams.filter((t) => t.team_id !== teamId);
 
         const myPoints = myEntry?.points ?? 0;
-        const myShots = myEntry?.raw_shots ?? [];
+        const myShots = round2Stats.raw_shots ?? [];
 
         // Winner logic
         let winner: Winner = null;
