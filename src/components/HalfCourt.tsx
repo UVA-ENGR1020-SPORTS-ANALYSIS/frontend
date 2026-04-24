@@ -187,7 +187,7 @@ export function HalfCourt({
   return (
     <div
       ref={wrapperRef}
-      className="relative shrink-0 select-none rounded-xl overflow-hidden border border-border/50 shadow-lg w-full max-w-lg mx-auto"
+      className="relative shrink-0 select-none rounded-xl overflow-hidden border border-border/50 shadow-lg w-full max-w-lg mx-auto bg-card p-1"
     >
       <svg
         ref={svgRef}
@@ -253,7 +253,7 @@ export function HalfCourt({
                 <span className="text-lg">{makes}</span>
                 <span className="text-[10px] uppercase opacity-80">made</span>
               </div>
-              <div className="bg-background/80 backdrop-blur text-foreground text-sm font-black px-3 py-1.5 rounded-lg border border-border shadow-sm">
+              <div className="bg-card text-foreground text-sm font-black px-3 py-1.5 rounded-lg border border-border shadow-md ring-1 ring-black/5">
                 {attempts} shots
               </div>
               <div className="flex items-center gap-1.5 bg-red-500/90 text-white text-sm font-bold px-3 py-1.5 rounded-lg shadow-md">
