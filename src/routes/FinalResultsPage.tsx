@@ -120,6 +120,16 @@ export function FinalResultsPage() {
         const myEntry = final.teams.find((t) => t.team_id === teamId);
         const opponents = final.teams.filter((t) => t.team_id !== teamId);
 
+        // Multi-team mode: if the backend hasn't surfaced the opponents yet
+        // (transient race during finalization), skip this update so we don't
+        // briefly render "24 vs 0". Stay on the loading/waiting view; the
+        // next poll will pick up the full payload.
+        if (details.session.target_team > 1 && opponents.length === 0) {
+          consecutiveTransientMisses += 1;
+          console.warn("FinalResultsPage: no opponents in final_results yet, retrying");
+          return;
+        }
+
         const myPoints = myEntry?.points ?? 0;
         const myShots = round2Stats.raw_shots ?? [];
 
@@ -167,7 +177,7 @@ export function FinalResultsPage() {
     };
 
     loadData();
-    intervalId = setInterval(loadData, 5000);
+    intervalId = setInterval(loadData, 2500);
 
     return () => {
       cancelled = true;

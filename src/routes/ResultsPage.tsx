@@ -20,7 +20,13 @@ export function ResultsPage() {
   const [targetTeam, setTargetTeam] = useState(1);
   const [sessionId, setSessionId] = useState("");
   const [teamId, setTeamId] = useState("");
-  const [opponentReady, setOpponentReady] = useState(false);
+  // Persist across navigations (e.g. View Stats → back) so we don't re-poll
+  // and re-show "Waiting for opponent…" for something we already detected.
+  const opponentReadyKey = sessionCode ? `opponentReady_r1_${sessionCode}` : "";
+  const [opponentReady, setOpponentReady] = useState<boolean>(() => {
+    if (!opponentReadyKey) return false;
+    return sessionStorage.getItem(opponentReadyKey) === "1";
+  });
 
   interface RoundPlayerStat {
     player_id: string;
@@ -60,30 +66,34 @@ export function ResultsPage() {
         ) as Record<number, ZoneStat>);
         setZoneStats(zStats);
 
-        // Build per-player stats from the same raw_shots — consistent with heatmap
+        // Build per-player stats by walking the team roster (not the shots),
+        // so we always have a real player_name. Iterating shots first meant
+        // a shot whose shot_player_id wasn't in the roster (or arrived
+        // before the roster did) fell back to the raw UUID — bad UX.
         const ourTeam = details.teams.find((t) => t.team_id === tId);
-        const nameMap = new Map(
-          (ourTeam?.player ?? []).map((p) => [p.player_id, p.player_name])
-        );
-        const perPlayer = new Map<string, { makes: number; attempts: number; points: number }>();
+        const roster = ourTeam?.player ?? [];
+        const shotsByPlayer = new Map<string, { makes: number; attempts: number; points: number }>();
         for (const s of stats.raw_shots) {
           const pid = s.shot_player_id;
           if (!pid) continue;
-          const cur = perPlayer.get(pid) ?? { makes: 0, attempts: 0, points: 0 };
+          const cur = shotsByPlayer.get(pid) ?? { makes: 0, attempts: 0, points: 0 };
           cur.attempts += 1;
           if (s.shot_made) cur.makes += 1;
           cur.points += s.points ?? 0;
-          perPlayer.set(pid, cur);
+          shotsByPlayer.set(pid, cur);
         }
         setPlayerStats(
-          Array.from(perPlayer.entries()).map(([pid, s]) => ({
-            player_id: pid,
-            player_name: nameMap.get(pid) ?? pid,
-            total_makes: s.makes,
-            total_attempts: s.attempts,
-            total_points: s.points,
-            shooting_pct: s.attempts > 0 ? Math.round((s.makes / s.attempts) * 100) : 0,
-          }))
+          roster.map((p, idx) => {
+            const s = shotsByPlayer.get(p.player_id) ?? { makes: 0, attempts: 0, points: 0 };
+            return {
+              player_id: p.player_id,
+              player_name: p.player_name || `Player ${idx + 1}`,
+              total_makes: s.makes,
+              total_attempts: s.attempts,
+              total_points: s.points,
+              shooting_pct: s.attempts > 0 ? Math.round((s.makes / s.attempts) * 100) : 0,
+            };
+          })
         );
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load stats");
@@ -127,15 +137,26 @@ export function ResultsPage() {
       return false;
     };
 
+    const markReady = () => {
+      if (opponentReadyKey) sessionStorage.setItem(opponentReadyKey, "1");
+      setOpponentReady(true);
+    };
+
+    // Fire one check immediately so a returning user (View Stats → back)
+    // doesn't have to wait a full interval before the button shows again.
+    (async () => {
+      if (await checkOnce()) markReady();
+    })();
+
     const intervalId = setInterval(async () => {
       if (await checkOnce()) {
-        setOpponentReady(true);
+        markReady();
         clearInterval(intervalId);
       }
     }, 3000);
 
     return () => clearInterval(intervalId);
-  }, [targetTeam, sessionId, teamId, sessionCode, opponentReady]);
+  }, [targetTeam, sessionId, teamId, sessionCode, opponentReady, opponentReadyKey]);
 
 
   if (loading) {
