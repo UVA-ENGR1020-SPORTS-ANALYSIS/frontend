@@ -148,10 +148,16 @@ export function FinalResultsPage() {
         // is still finalizing. Stay on the loading view and try again.
         const myMissing = !myEntry;
         const oppMissing = details.session.target_team > 1 && opponents.length === 0;
-        if (myMissing || oppMissing) {
+        // Defensive: if any team reports shots taken but 0 points (or
+        // raw_shots non-empty but points=0), the backend aggregate is
+        // returning bad data this tick — skip and let the next poll retry.
+        const hasZeroPointsBug = final.teams.some(
+          (t) => (t.raw_shots?.length ?? 0) > 0 && (t.points ?? 0) === 0
+        );
+        if (myMissing || oppMissing || hasZeroPointsBug) {
           consecutiveTransientMisses += 1;
           console.warn(
-            `FinalResultsPage: incomplete payload (myMissing=${myMissing}, oppMissing=${oppMissing}), retrying`
+            `FinalResultsPage: incomplete payload (myMissing=${myMissing}, oppMissing=${oppMissing}, zeroBug=${hasZeroPointsBug}), retrying`
           );
           return;
         }

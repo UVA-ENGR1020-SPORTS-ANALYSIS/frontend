@@ -38,6 +38,9 @@ export function GamePage() {
 
   // Finishing-phase progress (e.g. "3 / 20 submitted")
   const [submittedCount, setSubmittedCount] = useState(0);
+  // Brief visible error so a transient submit failure isn't silent
+  // (Finish Round looking like it "did nothing").
+  const [finishError, setFinishError] = useState<string>("");
 
   // Game progression specific
   const [currentRound, setCurrentRound] = useState(1);
@@ -168,6 +171,7 @@ export function GamePage() {
   const handleFinishRound = useCallback(async () => {
     setPhase("finishing");
     setSubmittedCount(0);
+    setFinishError("");
     try {
       // Best-effort clear — don't abort if this fails
       try {
@@ -217,6 +221,12 @@ export function GamePage() {
       console.error("Failed to finish round:", err);
       setPhase("playing");
       setSubmittedCount(0);
+      setFinishError(
+        err instanceof Error
+          ? `Submit failed: ${err.message}. Tap Finish Round again.`
+          : "Submit failed. Tap Finish Round again."
+      );
+      setTimeout(() => setFinishError(""), 5000);
     }
   }, [shots, teamId, sessionId, currentRound, navigate, sessionCode]);
 
@@ -317,6 +327,12 @@ export function GamePage() {
         shotsPerPlayer={SHOTS_PER_PLAYER}
         onPlayerClick={handlePlayerClick}
       />
+
+      {finishError && (
+        <div className="px-4 py-2 rounded-lg bg-destructive/10 text-destructive text-sm font-medium border border-destructive/30">
+          {finishError}
+        </div>
+      )}
 
       {/* Action buttons */}
       <div className="flex gap-3 items-center">
