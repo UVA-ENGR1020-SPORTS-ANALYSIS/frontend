@@ -176,31 +176,21 @@ export function GamePage() {
         console.warn("Could not clear existing round shots:", err);
       }
 
-      // Submit each shot with up to 3 attempts, capped to 4 in flight at once.
-      // Concurrency limit gives us most of the parallel speedup without
-      // overwhelming the backend / triggering the worst of the player-stat
-      // race; the backend's post-finish recompute self-heals any drift.
-      const submitOneWithRetry = async (shot: ShotDot): Promise<void> => {
-        let lastErr: unknown = null;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          try {
-            await submitShotAPI({
-              player_id: shot.playerId,
-              team_id: teamId,
-              session_id: sessionId,
-              round_number: currentRound,
-              zone: shot.zone,
-              shot_made: shot.made,
-            });
-            return;
-          } catch (err) {
-            lastErr = err;
-            if (attempt < 2) {
-              await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
-            }
-          }
-        }
-        throw lastErr;
+      // Submit shots in parallel batches of 4. NO per-shot retry: a timeout on
+      // a slow server can mean the shot was actually stored, and retrying then
+      // creates a duplicate (we saw "5 shots → 6 attempts" because of this).
+      // If a shot fails, we throw and let the user re-press Finish Round —
+      // the deleteRoundShotsAPI at the start wipes any partial state, so
+      // retrying the whole round is always consistent.
+      const submitOne = async (shot: ShotDot): Promise<void> => {
+        await submitShotAPI({
+          player_id: shot.playerId,
+          team_id: teamId,
+          session_id: sessionId,
+          round_number: currentRound,
+          zone: shot.zone,
+          shot_made: shot.made,
+        });
       };
 
       const CONCURRENCY = 4;
@@ -211,7 +201,7 @@ export function GamePage() {
           const i = nextIndex;
           nextIndex += 1;
           if (i >= total) return;
-          await submitOneWithRetry(shots[i]);
+          await submitOne(shots[i]);
           setSubmittedCount((c) => c + 1);
         }
       });
