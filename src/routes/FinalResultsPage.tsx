@@ -116,9 +116,14 @@ export function FinalResultsPage() {
           }
         }
 
-        const [final, round2Stats] = await Promise.all([
+        // Fetch ALL data we need up-front in parallel — including the player
+        // table — so we can cross-validate before rendering. The player table
+        // is updated incrementally on each shot submit, so it's the most
+        // reliable source of truth for our team's score.
+        const [final, round2Stats, teamPlayersRes] = await Promise.all([
           fetchFinalResultsAPI(details.session.session_id),
           fetchTeamStatsAPI(teamId, 2).catch(() => ({ points: 0, raw_shots: [] as RawShot[] })),
+          fetchTeamPlayers(teamId).catch(() => ({ team_id: teamId, players: [] as PlayerStats[] })),
         ]);
         if (cancelled) return;
         const myEntry = final.teams.find((t) => t.team_id === teamId);
@@ -126,28 +131,28 @@ export function FinalResultsPage() {
 
         const myPoints = myEntry?.points ?? 0;
         const myShots = round2Stats.raw_shots ?? [];
+        const players = teamPlayersRes.players ?? [];
+        const playerTablePoints = players.reduce((sum, p) => sum + (p.total_points ?? 0), 0);
 
-        // Don't render until BOTH sides of the scoreboard are present.
-        // Without this we'd flash "24 vs 0" or "0 vs 13" while the backend
-        // is still finalizing. Stay on the loading view and try again.
+        // Validation: only render when every signal is self-consistent.
         const myMissing = !myEntry;
         const oppMissing = details.session.target_team > 1 && opponents.length === 0;
-        // Defensive: any team reports shots taken but 0 cumulative points →
-        // backend cumulative query returned inconsistent data this tick.
+        // Any team with shots taken but 0 cumulative points → backend lied.
         const hasZeroPointsBug = final.teams.some(
           (t) => (t.raw_shots?.length ?? 0) > 0 && (t.points ?? 0) === 0
         );
-        // Stronger cross-check for MY team: cumulative >= round 2 alone.
-        // If the cumulative my-points is *less than* what we measure for
-        // round 2, the backend is returning a stale/empty cumulative shot
-        // list even though round 2 shots clearly exist (the bug behind the
-        // "View Stats -> back -> 0-0 even though player1 has 16 pts" loop).
+        // Cumulative must be >= round 2 alone.
         const round2Points = myShots.reduce((sum, s) => sum + (s.points ?? 0), 0);
         const myPointsInconsistent = !myMissing && myPoints < round2Points;
-        if (myMissing || oppMissing || hasZeroPointsBug || myPointsInconsistent) {
+        // KEY CHECK: the team total from final_results must be >= the sum of
+        // our individual players' total_points. If our players sum to 24 but
+        // final_results says 0, that's the bug — refuse to render and retry.
+        const myPointsLessThanPlayers = !myMissing && playerTablePoints > 0 && myPoints < playerTablePoints;
+
+        if (myMissing || oppMissing || hasZeroPointsBug || myPointsInconsistent || myPointsLessThanPlayers) {
           consecutiveTransientMisses += 1;
           console.warn(
-            `FinalResultsPage: bad payload (myMissing=${myMissing}, oppMissing=${oppMissing}, zeroBug=${hasZeroPointsBug}, myInconsistent=${myPointsInconsistent}), retrying`
+            `FinalResultsPage: bad payload (myMissing=${myMissing}, oppMissing=${oppMissing}, zeroBug=${hasZeroPointsBug}, myInconsistent=${myPointsInconsistent}, myVsPlayers=${myPointsLessThanPlayers}, myPoints=${myPoints}, playerSum=${playerTablePoints}), retrying`
           );
           return;
         }
@@ -171,22 +176,17 @@ export function FinalResultsPage() {
           winner,
         };
         setResults(nextResults);
+        setMyPlayerStats(players);
         setWaiting(false);
         setLoading(false);
         resultsEverLoaded = true;
 
         // Final results are final — once we've rendered a complete payload,
-        // stop polling. Continuing to poll caused the score card to flip-flop
-        // when the backend occasionally returned 0 / incomplete data on a
-        // subsequent tick, overwriting the correct values.
+        // stop polling.
         if (intervalId) {
           clearInterval(intervalId);
           intervalId = null;
         }
-
-        const { players } = await fetchTeamPlayers(teamId);
-        if (cancelled) return;
-        setMyPlayerStats(players);
       } catch (err: unknown) {
         // Once results have rendered once, never overwrite the page with an error
         // — just log and let the next poll try again.
