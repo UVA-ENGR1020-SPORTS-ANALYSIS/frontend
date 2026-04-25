@@ -67,7 +67,8 @@ export function FinalResultsPage() {
 
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | null = null;
-    let initialLoadDone = false;
+    let resultsEverLoaded = false;
+    let consecutiveTransientMisses = 0;
     let cancelled = false;
 
     const loadData = async () => {
@@ -78,15 +79,32 @@ export function FinalResultsPage() {
 
         const details = await getSessionDetails(sessionCode);
         if (cancelled) return;
-        setTargetTeam(details.session.target_team);
-        setTeams(details.teams);
 
-        const myTeam = details.teams.find((t) => t.team_id === teamId);
-        if (!myTeam) throw new Error("Team not found");
+        // Sanity-check the response. A transient backend hiccup or an empty
+        // teams payload should not blow the page up — keep polling and let
+        // the next tick try again.
+        const teamsList = details.teams ?? [];
+        const myTeam = teamsList.find((t) => t.team_id === teamId);
+        if (!myTeam) {
+          consecutiveTransientMisses += 1;
+          // Only show a hard error if we never loaded results AND this has
+          // been failing for a while. Otherwise: soft-fail, keep polling.
+          if (!resultsEverLoaded && consecutiveTransientMisses >= 6) {
+            throw new Error("Team not found");
+          }
+          console.warn(
+            `FinalResultsPage: team ${teamId} not in session yet (miss ${consecutiveTransientMisses})`
+          );
+          return;
+        }
+        consecutiveTransientMisses = 0;
+
+        setTargetTeam(details.session.target_team);
+        setTeams(teamsList);
 
         // Multi-team: wait for every other team to finish round 2
         if (details.session.target_team > 1) {
-          const allFinished = details.teams.every((t) => t.round_2_finished);
+          const allFinished = teamsList.every((t) => t.round_2_finished);
           if (!allFinished) {
             setWaiting(true);
             setLoading(false);
@@ -125,6 +143,7 @@ export function FinalResultsPage() {
         });
         setWaiting(false);
         setLoading(false);
+        resultsEverLoaded = true;
         // NOTE: do NOT clear interval here — keep polling so late score updates
         // (e.g. another teammate finishing on a different device) propagate
         // without requiring a manual refresh.
@@ -133,17 +152,17 @@ export function FinalResultsPage() {
         if (cancelled) return;
         setMyPlayerStats(players);
       } catch (err: unknown) {
-        if (!initialLoadDone) {
-          if (!cancelled) {
-            setError(err instanceof Error ? err.message : "Failed to load final results");
-            setLoading(false);
-          }
-          if (intervalId) clearInterval(intervalId);
-        } else {
+        // Once results have rendered once, never overwrite the page with an error
+        // — just log and let the next poll try again.
+        if (resultsEverLoaded) {
           console.error("Polling final results failed:", err);
+          return;
         }
-      } finally {
-        initialLoadDone = true;
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load final results");
+          setLoading(false);
+        }
+        if (intervalId) clearInterval(intervalId);
       }
     };
 

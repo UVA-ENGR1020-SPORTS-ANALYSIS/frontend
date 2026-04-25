@@ -36,6 +36,9 @@ export function GamePage() {
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [shotCounts, setShotCounts] = useState<Record<string, number>>({});
 
+  // Finishing-phase progress (e.g. "3 / 20 submitted")
+  const [submittedCount, setSubmittedCount] = useState(0);
+
   // Game progression specific
   const [currentRound, setCurrentRound] = useState(1);
   const [bannedZone, setBannedZone] = useState<number | null>(null);
@@ -164,6 +167,7 @@ export function GamePage() {
   // ── Finish round — submit all local shots to backend, then mark round done ──
   const handleFinishRound = useCallback(async () => {
     setPhase("finishing");
+    setSubmittedCount(0);
     try {
       // Best-effort clear — don't abort if this fails
       try {
@@ -172,12 +176,11 @@ export function GamePage() {
         console.warn("Could not clear existing round shots:", err);
       }
 
-      // Submit shots sequentially with up to 2 retries each.
-      // Sequential avoids a known race condition in the backend's
-      // increment_player_stats (read-modify-write under parallel writes).
-      // Retry-per-shot prevents one flaky request from forcing the user
-      // to re-press Finish Round.
-      for (const shot of shots) {
+      // Submit each shot with up to 3 attempts, capped to 4 in flight at once.
+      // Concurrency limit gives us most of the parallel speedup without
+      // overwhelming the backend / triggering the worst of the player-stat
+      // race; the backend's post-finish recompute self-heals any drift.
+      const submitOneWithRetry = async (shot: ShotDot): Promise<void> => {
         let lastErr: unknown = null;
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
@@ -189,17 +192,30 @@ export function GamePage() {
               zone: shot.zone,
               shot_made: shot.made,
             });
-            lastErr = null;
-            break;
+            return;
           } catch (err) {
             lastErr = err;
             if (attempt < 2) {
-              await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+              await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
             }
           }
         }
-        if (lastErr) throw lastErr;
-      }
+        throw lastErr;
+      };
+
+      const CONCURRENCY = 4;
+      let nextIndex = 0;
+      const total = shots.length;
+      const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, async () => {
+        while (true) {
+          const i = nextIndex;
+          nextIndex += 1;
+          if (i >= total) return;
+          await submitOneWithRetry(shots[i]);
+          setSubmittedCount((c) => c + 1);
+        }
+      });
+      await Promise.all(workers);
 
       await finishRoundAPI({ team_id: teamId, round_number: currentRound });
       if (currentRound === 2) {
@@ -210,6 +226,7 @@ export function GamePage() {
     } catch (err) {
       console.error("Failed to finish round:", err);
       setPhase("playing");
+      setSubmittedCount(0);
     }
   }, [shots, teamId, sessionId, currentRound, navigate, sessionCode]);
 
@@ -340,11 +357,26 @@ export function GamePage() {
           size="sm"
           className="gap-1.5 text-muted-foreground hover:text-foreground"
           onClick={handleReset}
+          disabled={phase === "finishing"}
         >
           <RotateCcw className="size-3.5" />
           Reset
         </Button>
       </div>
+
+      {/* Finishing-phase overlay — blocks input and shows progress so the
+          user knows submission is in flight and can't double-press. */}
+      {phase === "finishing" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 px-6 py-5 rounded-2xl bg-card border shadow-xl">
+            <Loader2 className="size-10 animate-spin text-primary" />
+            <p className="text-lg font-semibold">Finishing round…</p>
+            <p className="text-sm text-muted-foreground tabular-nums">
+              {submittedCount} / {shots.length} shots submitted
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
