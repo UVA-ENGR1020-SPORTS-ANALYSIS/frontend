@@ -77,6 +77,25 @@ export function ResultsPage() {
           getSessionDetails(sessionCode),
           fetchTeamStatsAPI(tId, 1),
         ]);
+
+        // Defensive: backend has occasionally returned 0 points even though
+        // raw_shots exist. Don't render that — and wipe any cached version
+        // of it so View Stats -> back doesn't keep showing the bad value.
+        const rawShotsPoints = stats.raw_shots.reduce(
+          (sum, s) => sum + (s.points ?? 0),
+          0
+        );
+        if (stats.raw_shots.length > 0 && stats.points === 0 && rawShotsPoints > 0) {
+          if (cacheKey) {
+            try {
+              sessionStorage.removeItem(cacheKey);
+            } catch {
+              // ignore
+            }
+          }
+          throw new Error("Backend returned 0 points despite shots existing");
+        }
+
         setTargetTeam(details.session.target_team);
         setSessionId(details.session.session_id);
         setTotalPoints(stats.points);

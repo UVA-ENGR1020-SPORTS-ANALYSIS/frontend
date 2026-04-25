@@ -143,27 +143,42 @@ export function FinalResultsPage() {
         const myEntry = final.teams.find((t) => t.team_id === teamId);
         const opponents = final.teams.filter((t) => t.team_id !== teamId);
 
+        const myPoints = myEntry?.points ?? 0;
+        const myShots = round2Stats.raw_shots ?? [];
+
         // Don't render until BOTH sides of the scoreboard are present.
         // Without this we'd flash "24 vs 0" or "0 vs 13" while the backend
         // is still finalizing. Stay on the loading view and try again.
         const myMissing = !myEntry;
         const oppMissing = details.session.target_team > 1 && opponents.length === 0;
-        // Defensive: if any team reports shots taken but 0 points (or
-        // raw_shots non-empty but points=0), the backend aggregate is
-        // returning bad data this tick — skip and let the next poll retry.
+        // Defensive: any team reports shots taken but 0 cumulative points →
+        // backend cumulative query returned inconsistent data this tick.
         const hasZeroPointsBug = final.teams.some(
           (t) => (t.raw_shots?.length ?? 0) > 0 && (t.points ?? 0) === 0
         );
-        if (myMissing || oppMissing || hasZeroPointsBug) {
+        // Stronger cross-check for MY team: cumulative >= round 2 alone.
+        // If the cumulative my-points is *less than* what we measure for
+        // round 2, the backend is returning a stale/empty cumulative shot
+        // list even though round 2 shots clearly exist (the bug behind the
+        // "View Stats -> back -> 0-0 even though player1 has 16 pts" loop).
+        const round2Points = myShots.reduce((sum, s) => sum + (s.points ?? 0), 0);
+        const myPointsInconsistent = !myMissing && myPoints < round2Points;
+        if (myMissing || oppMissing || hasZeroPointsBug || myPointsInconsistent) {
           consecutiveTransientMisses += 1;
+          // Invalidate any cached payload — otherwise a previously-cached
+          // bad render keeps coming back through the next mount.
+          if (cacheKey) {
+            try {
+              sessionStorage.removeItem(cacheKey);
+            } catch {
+              // ignore
+            }
+          }
           console.warn(
-            `FinalResultsPage: incomplete payload (myMissing=${myMissing}, oppMissing=${oppMissing}, zeroBug=${hasZeroPointsBug}), retrying`
+            `FinalResultsPage: bad payload (myMissing=${myMissing}, oppMissing=${oppMissing}, zeroBug=${hasZeroPointsBug}, myInconsistent=${myPointsInconsistent}), retrying`
           );
           return;
         }
-
-        const myPoints = myEntry?.points ?? 0;
-        const myShots = round2Stats.raw_shots ?? [];
 
         // Winner logic
         let winner: Winner = null;
