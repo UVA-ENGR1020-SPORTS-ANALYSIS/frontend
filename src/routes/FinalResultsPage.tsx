@@ -148,11 +148,17 @@ export function FinalResultsPage() {
         // our individual players' total_points. If our players sum to 24 but
         // final_results says 0, that's the bug — refuse to render and retry.
         const myPointsLessThanPlayers = !myMissing && playerTablePoints > 0 && myPoints < playerTablePoints;
+        // Heatmap relies on round 2 raw_shots specifically. If we know shots
+        // exist (cumulative or player table reports points) but the round-2
+        // query came back empty, that's the same Supabase read-lag pattern —
+        // wait for it to catch up rather than render an all-0% court.
+        const round2ShotsMissing =
+          myShots.length === 0 && (myPoints > 0 || playerTablePoints > 0);
 
-        if (myMissing || oppMissing || hasZeroPointsBug || myPointsInconsistent || myPointsLessThanPlayers) {
+        if (myMissing || oppMissing || hasZeroPointsBug || myPointsInconsistent || myPointsLessThanPlayers || round2ShotsMissing) {
           consecutiveTransientMisses += 1;
           console.warn(
-            `FinalResultsPage: bad payload (myMissing=${myMissing}, oppMissing=${oppMissing}, zeroBug=${hasZeroPointsBug}, myInconsistent=${myPointsInconsistent}, myVsPlayers=${myPointsLessThanPlayers}, myPoints=${myPoints}, playerSum=${playerTablePoints}), retrying`
+            `FinalResultsPage: bad payload (myMissing=${myMissing}, oppMissing=${oppMissing}, zeroBug=${hasZeroPointsBug}, myInconsistent=${myPointsInconsistent}, myVsPlayers=${myPointsLessThanPlayers}, round2Missing=${round2ShotsMissing}, myPoints=${myPoints}, playerSum=${playerTablePoints}), retrying`
           );
           return;
         }
