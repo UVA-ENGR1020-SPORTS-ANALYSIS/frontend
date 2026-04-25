@@ -52,45 +52,26 @@ function teamLabel(team: Team, fallbackIndex: number): string {
   return `Team ${fallbackIndex + 1}`;
 }
 
-interface CachedFinal {
-  results: LoadedResults;
-  teams: Team[];
-  targetTeam: number;
-  myTeamId: string;
-  myPlayerStats: PlayerStats[];
-}
-
 export function FinalResultsPage() {
   const { sessionCode } = useParams<{ sessionCode: string }>();
   const navigate = useNavigate();
 
-  // Stale-while-revalidate cache for the final-results payload.
-  // View Stats → back renders instantly; we still refetch in background.
-  const cacheKey = sessionCode ? `finalResults_${sessionCode}` : "";
-  const cachedInitial: CachedFinal | null = (() => {
-    if (!cacheKey) return null;
-    try {
-      const raw = sessionStorage.getItem(cacheKey);
-      return raw ? (JSON.parse(raw) as CachedFinal) : null;
-    } catch {
-      return null;
-    }
-  })();
-
-  const [loading, setLoading] = useState(!cachedInitial);
+  // No cache. Caching across View Stats -> back was the source of
+  // recurring "0-0 garbage" reports — bad data could land in storage
+  // and survive future fix deploys. Always refetch fresh; validate
+  // strictly; only render once everything we need is consistent.
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [waiting, setWaiting] = useState(false);
-  const [results, setResults] = useState<LoadedResults | null>(cachedInitial?.results ?? null);
-  const [teams, setTeams] = useState<Team[]>(cachedInitial?.teams ?? []);
-  const [targetTeam, setTargetTeam] = useState(cachedInitial?.targetTeam ?? 1);
-  const [myTeamId, setMyTeamId] = useState(cachedInitial?.myTeamId ?? "");
-  const [myPlayerStats, setMyPlayerStats] = useState<PlayerStats[]>(cachedInitial?.myPlayerStats ?? []);
+  const [results, setResults] = useState<LoadedResults | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [targetTeam, setTargetTeam] = useState(1);
+  const [myTeamId, setMyTeamId] = useState("");
+  const [myPlayerStats, setMyPlayerStats] = useState<PlayerStats[]>([]);
 
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | null = null;
-    // If we hydrated from cache, treat that as already-loaded so a transient
-    // refetch failure doesn't blow away the page with an error screen.
-    let resultsEverLoaded = !!cachedInitial;
+    let resultsEverLoaded = false;
     let consecutiveTransientMisses = 0;
     let cancelled = false;
 
@@ -165,15 +146,6 @@ export function FinalResultsPage() {
         const myPointsInconsistent = !myMissing && myPoints < round2Points;
         if (myMissing || oppMissing || hasZeroPointsBug || myPointsInconsistent) {
           consecutiveTransientMisses += 1;
-          // Invalidate any cached payload — otherwise a previously-cached
-          // bad render keeps coming back through the next mount.
-          if (cacheKey) {
-            try {
-              sessionStorage.removeItem(cacheKey);
-            } catch {
-              // ignore
-            }
-          }
           console.warn(
             `FinalResultsPage: bad payload (myMissing=${myMissing}, oppMissing=${oppMissing}, zeroBug=${hasZeroPointsBug}, myInconsistent=${myPointsInconsistent}), retrying`
           );
@@ -215,22 +187,6 @@ export function FinalResultsPage() {
         const { players } = await fetchTeamPlayers(teamId);
         if (cancelled) return;
         setMyPlayerStats(players);
-
-        // Persist for instant render on revisit (View Stats → back).
-        if (cacheKey) {
-          try {
-            const payload: CachedFinal = {
-              results: nextResults,
-              teams: teamsList,
-              targetTeam: details.session.target_team,
-              myTeamId: teamId,
-              myPlayerStats: players,
-            };
-            sessionStorage.setItem(cacheKey, JSON.stringify(payload));
-          } catch {
-            // sessionStorage full or disabled — non-fatal.
-          }
-        }
       } catch (err: unknown) {
         // Once results have rendered once, never overwrite the page with an error
         // — just log and let the next poll try again.
@@ -253,8 +209,6 @@ export function FinalResultsPage() {
       cancelled = true;
       if (intervalId) clearInterval(intervalId);
     };
-    // cachedInitial / cacheKey are stable per sessionCode.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionCode]);
 
   if (loading) {

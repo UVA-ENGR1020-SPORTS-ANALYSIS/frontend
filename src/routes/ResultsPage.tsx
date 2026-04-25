@@ -17,54 +17,34 @@ interface RoundPlayerStat {
   shooting_pct: number;
 }
 
-interface CachedR1 {
-  targetTeam: number;
-  sessionId: string;
-  teamId: string;
-  zoneStats: Record<number, ZoneStat>;
-  totalPoints: number;
-  playerStats: RoundPlayerStat[];
-}
-
 export function ResultsPage() {
   const { sessionCode } = useParams<{ sessionCode: string }>();
   const navigate = useNavigate();
 
-  // Stale-while-revalidate cache for the round-1 results payload.
-  // View Stats → back renders instantly from cache; we still refetch
-  // in the background to pick up any drift.
-  const cacheKey = sessionCode ? `r1Results_${sessionCode}` : "";
-  const cachedInitial: CachedR1 | null = (() => {
-    if (!cacheKey) return null;
-    try {
-      const raw = sessionStorage.getItem(cacheKey);
-      return raw ? (JSON.parse(raw) as CachedR1) : null;
-    } catch {
-      return null;
-    }
-  })();
-
-  const [loading, setLoading] = useState(!cachedInitial);
+  // No results cache. View Stats -> back always refetches fresh and only
+  // renders once strict validation passes. Eliminates the "0-0 garbage
+  // resurrected from sessionStorage" failure mode entirely.
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [zoneStats, setZoneStats] = useState<Record<number, ZoneStat>>(cachedInitial?.zoneStats ?? {});
-  const [totalPoints, setTotalPoints] = useState(cachedInitial?.totalPoints ?? 0);
+  const [zoneStats, setZoneStats] = useState<Record<number, ZoneStat>>({});
+  const [totalPoints, setTotalPoints] = useState(0);
 
-  const [targetTeam, setTargetTeam] = useState(cachedInitial?.targetTeam ?? 1);
+  const [targetTeam, setTargetTeam] = useState(1);
   // True when the session physically has only one team — handles the case
   // where the backend stored target_team=2 for what was actually played as
   // a single-team session (no opponent will ever join).
   const [effectivelySolo, setEffectivelySolo] = useState(false);
-  const [sessionId, setSessionId] = useState(cachedInitial?.sessionId ?? "");
-  const [teamId, setTeamId] = useState(cachedInitial?.teamId ?? "");
-  // Persist across navigations (e.g. View Stats → back) so we don't re-poll
-  // and re-show "Waiting for opponent…" for something we already detected.
+  const [sessionId, setSessionId] = useState("");
+  const [teamId, setTeamId] = useState("");
+  // Workflow state (not results data) — we still want View Stats -> back
+  // to remember the opponent is ready so we don't re-show the waiting view.
   const opponentReadyKey = sessionCode ? `opponentReady_r1_${sessionCode}` : "";
   const [opponentReady, setOpponentReady] = useState<boolean>(() => {
     if (!opponentReadyKey) return false;
     return sessionStorage.getItem(opponentReadyKey) === "1";
   });
 
-  const [playerStats, setPlayerStats] = useState<RoundPlayerStat[]>(cachedInitial?.playerStats ?? []);
+  const [playerStats, setPlayerStats] = useState<RoundPlayerStat[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -86,13 +66,6 @@ export function ResultsPage() {
           0
         );
         if (stats.raw_shots.length > 0 && stats.points === 0 && rawShotsPoints > 0) {
-          if (cacheKey) {
-            try {
-              sessionStorage.removeItem(cacheKey);
-            } catch {
-              // ignore
-            }
-          }
           throw new Error("Backend returned 0 points despite shots existing");
         }
 
@@ -144,36 +117,12 @@ export function ResultsPage() {
           };
         });
         setPlayerStats(nextPlayerStats);
-
-        // Persist for instant render on revisit (View Stats → back).
-        if (cacheKey) {
-          try {
-            const payload: CachedR1 = {
-              targetTeam: details.session.target_team,
-              sessionId: details.session.session_id,
-              teamId: tId,
-              zoneStats: zStats,
-              totalPoints: stats.points,
-              playerStats: nextPlayerStats,
-            };
-            sessionStorage.setItem(cacheKey, JSON.stringify(payload));
-          } catch {
-            // sessionStorage full or disabled — non-fatal.
-          }
-        }
       } catch (err: unknown) {
-        // If we have cached data, don't blow up the page on a transient error.
-        if (cachedInitial) {
-          console.warn("ResultsPage refetch failed, keeping cached data:", err);
-        } else {
-          setError(err instanceof Error ? err.message : "Failed to load stats");
-        }
+        setError(err instanceof Error ? err.message : "Failed to load stats");
       } finally {
         setLoading(false);
       }
     })();
-    // cachedInitial / cacheKey are stable per sessionCode — eslint-disable below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionCode]);
 
   // Poll for opponent completion if multi-team. We cross-check two
