@@ -8,18 +8,50 @@ import { fetchTeamStatsAPI, fetchOpponentStatsAPI } from "@/api/game";
 import type { RawShot } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
 
+interface RoundPlayerStat {
+  player_id: string;
+  player_name: string;
+  total_makes: number;
+  total_attempts: number;
+  total_points: number;
+  shooting_pct: number;
+}
+
+interface CachedR1 {
+  targetTeam: number;
+  sessionId: string;
+  teamId: string;
+  zoneStats: Record<number, ZoneStat>;
+  totalPoints: number;
+  playerStats: RoundPlayerStat[];
+}
+
 export function ResultsPage() {
   const { sessionCode } = useParams<{ sessionCode: string }>();
   const navigate = useNavigate();
-  
-  const [loading, setLoading] = useState(true);
+
+  // Stale-while-revalidate cache for the round-1 results payload.
+  // View Stats → back renders instantly from cache; we still refetch
+  // in the background to pick up any drift.
+  const cacheKey = sessionCode ? `r1Results_${sessionCode}` : "";
+  const cachedInitial: CachedR1 | null = (() => {
+    if (!cacheKey) return null;
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      return raw ? (JSON.parse(raw) as CachedR1) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const [loading, setLoading] = useState(!cachedInitial);
   const [error, setError] = useState("");
-  const [zoneStats, setZoneStats] = useState<Record<number, ZoneStat>>({});
-  const [totalPoints, setTotalPoints] = useState(0);
-  
-  const [targetTeam, setTargetTeam] = useState(1);
-  const [sessionId, setSessionId] = useState("");
-  const [teamId, setTeamId] = useState("");
+  const [zoneStats, setZoneStats] = useState<Record<number, ZoneStat>>(cachedInitial?.zoneStats ?? {});
+  const [totalPoints, setTotalPoints] = useState(cachedInitial?.totalPoints ?? 0);
+
+  const [targetTeam, setTargetTeam] = useState(cachedInitial?.targetTeam ?? 1);
+  const [sessionId, setSessionId] = useState(cachedInitial?.sessionId ?? "");
+  const [teamId, setTeamId] = useState(cachedInitial?.teamId ?? "");
   // Persist across navigations (e.g. View Stats → back) so we don't re-poll
   // and re-show "Waiting for opponent…" for something we already detected.
   const opponentReadyKey = sessionCode ? `opponentReady_r1_${sessionCode}` : "";
@@ -28,15 +60,7 @@ export function ResultsPage() {
     return sessionStorage.getItem(opponentReadyKey) === "1";
   });
 
-  interface RoundPlayerStat {
-    player_id: string;
-    player_name: string;
-    total_makes: number;
-    total_attempts: number;
-    total_points: number;
-    shooting_pct: number;
-  }
-  const [playerStats, setPlayerStats] = useState<RoundPlayerStat[]>([]);
+  const [playerStats, setPlayerStats] = useState<RoundPlayerStat[]>(cachedInitial?.playerStats ?? []);
 
   useEffect(() => {
     (async () => {
@@ -82,25 +106,48 @@ export function ResultsPage() {
           cur.points += s.points ?? 0;
           shotsByPlayer.set(pid, cur);
         }
-        setPlayerStats(
-          roster.map((p, idx) => {
-            const s = shotsByPlayer.get(p.player_id) ?? { makes: 0, attempts: 0, points: 0 };
-            return {
-              player_id: p.player_id,
-              player_name: p.player_name || `Player ${idx + 1}`,
-              total_makes: s.makes,
-              total_attempts: s.attempts,
-              total_points: s.points,
-              shooting_pct: s.attempts > 0 ? Math.round((s.makes / s.attempts) * 100) : 0,
+        const nextPlayerStats: RoundPlayerStat[] = roster.map((p, idx) => {
+          const s = shotsByPlayer.get(p.player_id) ?? { makes: 0, attempts: 0, points: 0 };
+          return {
+            player_id: p.player_id,
+            player_name: p.player_name || `Player ${idx + 1}`,
+            total_makes: s.makes,
+            total_attempts: s.attempts,
+            total_points: s.points,
+            shooting_pct: s.attempts > 0 ? Math.round((s.makes / s.attempts) * 100) : 0,
+          };
+        });
+        setPlayerStats(nextPlayerStats);
+
+        // Persist for instant render on revisit (View Stats → back).
+        if (cacheKey) {
+          try {
+            const payload: CachedR1 = {
+              targetTeam: details.session.target_team,
+              sessionId: details.session.session_id,
+              teamId: tId,
+              zoneStats: zStats,
+              totalPoints: stats.points,
+              playerStats: nextPlayerStats,
             };
-          })
-        );
+            sessionStorage.setItem(cacheKey, JSON.stringify(payload));
+          } catch {
+            // sessionStorage full or disabled — non-fatal.
+          }
+        }
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Failed to load stats");
+        // If we have cached data, don't blow up the page on a transient error.
+        if (cachedInitial) {
+          console.warn("ResultsPage refetch failed, keeping cached data:", err);
+        } else {
+          setError(err instanceof Error ? err.message : "Failed to load stats");
+        }
       } finally {
         setLoading(false);
       }
     })();
+    // cachedInitial / cacheKey are stable per sessionCode — eslint-disable below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionCode]);
 
   // Poll for opponent completion if multi-team. We cross-check two
@@ -153,7 +200,7 @@ export function ResultsPage() {
         markReady();
         clearInterval(intervalId);
       }
-    }, 3000);
+    }, 1000);
 
     return () => clearInterval(intervalId);
   }, [targetTeam, sessionId, teamId, sessionCode, opponentReady, opponentReadyKey]);

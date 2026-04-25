@@ -52,22 +52,45 @@ function teamLabel(team: Team, fallbackIndex: number): string {
   return `Team ${fallbackIndex + 1}`;
 }
 
+interface CachedFinal {
+  results: LoadedResults;
+  teams: Team[];
+  targetTeam: number;
+  myTeamId: string;
+  myPlayerStats: PlayerStats[];
+}
+
 export function FinalResultsPage() {
   const { sessionCode } = useParams<{ sessionCode: string }>();
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(true);
+  // Stale-while-revalidate cache for the final-results payload.
+  // View Stats → back renders instantly; we still refetch in background.
+  const cacheKey = sessionCode ? `finalResults_${sessionCode}` : "";
+  const cachedInitial: CachedFinal | null = (() => {
+    if (!cacheKey) return null;
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      return raw ? (JSON.parse(raw) as CachedFinal) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const [loading, setLoading] = useState(!cachedInitial);
   const [error, setError] = useState("");
   const [waiting, setWaiting] = useState(false);
-  const [results, setResults] = useState<LoadedResults | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [targetTeam, setTargetTeam] = useState(1);
-  const [myTeamId, setMyTeamId] = useState("");
-  const [myPlayerStats, setMyPlayerStats] = useState<PlayerStats[]>([]);
+  const [results, setResults] = useState<LoadedResults | null>(cachedInitial?.results ?? null);
+  const [teams, setTeams] = useState<Team[]>(cachedInitial?.teams ?? []);
+  const [targetTeam, setTargetTeam] = useState(cachedInitial?.targetTeam ?? 1);
+  const [myTeamId, setMyTeamId] = useState(cachedInitial?.myTeamId ?? "");
+  const [myPlayerStats, setMyPlayerStats] = useState<PlayerStats[]>(cachedInitial?.myPlayerStats ?? []);
 
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | null = null;
-    let resultsEverLoaded = false;
+    // If we hydrated from cache, treat that as already-loaded so a transient
+    // refetch failure doesn't blow away the page with an error screen.
+    let resultsEverLoaded = !!cachedInitial;
     let consecutiveTransientMisses = 0;
     let cancelled = false;
 
@@ -144,13 +167,14 @@ export function FinalResultsPage() {
           else winner = "tie";
         }
 
-        setResults({
+        const nextResults: LoadedResults = {
           myPoints,
           opponents,
           allTeams: final.teams,
           zoneStats: computeZoneStats(myShots),
           winner,
-        });
+        };
+        setResults(nextResults);
         setWaiting(false);
         setLoading(false);
         resultsEverLoaded = true;
@@ -161,6 +185,22 @@ export function FinalResultsPage() {
         const { players } = await fetchTeamPlayers(teamId);
         if (cancelled) return;
         setMyPlayerStats(players);
+
+        // Persist for instant render on revisit (View Stats → back).
+        if (cacheKey) {
+          try {
+            const payload: CachedFinal = {
+              results: nextResults,
+              teams: teamsList,
+              targetTeam: details.session.target_team,
+              myTeamId: teamId,
+              myPlayerStats: players,
+            };
+            sessionStorage.setItem(cacheKey, JSON.stringify(payload));
+          } catch {
+            // sessionStorage full or disabled — non-fatal.
+          }
+        }
       } catch (err: unknown) {
         // Once results have rendered once, never overwrite the page with an error
         // — just log and let the next poll try again.
@@ -177,12 +217,14 @@ export function FinalResultsPage() {
     };
 
     loadData();
-    intervalId = setInterval(loadData, 2500);
+    intervalId = setInterval(loadData, 1200);
 
     return () => {
       cancelled = true;
       if (intervalId) clearInterval(intervalId);
     };
+    // cachedInitial / cacheKey are stable per sessionCode.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionCode]);
 
   if (loading) {
