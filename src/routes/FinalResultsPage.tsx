@@ -181,9 +181,15 @@ export function FinalResultsPage() {
         setWaiting(false);
         setLoading(false);
         resultsEverLoaded = true;
-        // NOTE: do NOT clear interval here — keep polling so late score updates
-        // (e.g. another teammate finishing on a different device) propagate
-        // without requiring a manual refresh.
+
+        // Final results are final — once we've rendered a complete payload,
+        // stop polling. Continuing to poll caused the score card to flip-flop
+        // when the backend occasionally returned 0 / incomplete data on a
+        // subsequent tick, overwriting the correct values.
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
 
         const { players } = await fetchTeamPlayers(teamId);
         if (cancelled) return;
