@@ -93,24 +93,49 @@ export function ResultsPage() {
     })();
   }, [sessionCode]);
 
-  // Poll for opponent completion if multi-team
+  // Poll for opponent completion if multi-team. We cross-check two
+  // sources because relying on /opponent_stats alone has been flaky in
+  // practice — if it returns "no_opponent" or any non-"ready" status we
+  // can still confirm via getSessionDetails that every other team has
+  // round_1_finished=true.
   useEffect(() => {
-    if (targetTeam === 1 || !sessionId || !teamId || opponentReady) return;
+    if (targetTeam === 1 || !sessionId || !teamId || !sessionCode || opponentReady) return;
+
+    const checkOnce = async () => {
+      try {
+        const [opp, details] = await Promise.allSettled([
+          fetchOpponentStatsAPI(sessionId, teamId),
+          getSessionDetails(sessionCode),
+        ]);
+
+        if (opp.status === "fulfilled" && opp.value.status === "ready") {
+          return true;
+        }
+
+        if (details.status === "fulfilled") {
+          const others = details.value.teams.filter((t) => t.team_id !== teamId);
+          if (others.length > 0 && others.every((t) => t.round_1_finished)) {
+            return true;
+          }
+        }
+
+        if (opp.status === "rejected") console.error("opponent_stats poll failed:", opp.reason);
+        if (details.status === "rejected") console.error("session details poll failed:", details.reason);
+      } catch (err) {
+        console.error("Polling opponent failed:", err);
+      }
+      return false;
+    };
 
     const intervalId = setInterval(async () => {
-      try {
-        const { status } = await fetchOpponentStatsAPI(sessionId, teamId);
-        if (status === "ready") {
-          setOpponentReady(true);
-          clearInterval(intervalId);
-        }
-      } catch (err) {
-        console.error("Polling opponent stats failed:", err);
+      if (await checkOnce()) {
+        setOpponentReady(true);
+        clearInterval(intervalId);
       }
     }, 3000);
 
     return () => clearInterval(intervalId);
-  }, [targetTeam, sessionId, teamId, opponentReady]);
+  }, [targetTeam, sessionId, teamId, sessionCode, opponentReady]);
 
 
   if (loading) {
