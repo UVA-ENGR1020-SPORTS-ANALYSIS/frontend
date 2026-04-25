@@ -66,17 +66,18 @@ export function FinalResultsPage() {
   const [myPlayerStats, setMyPlayerStats] = useState<PlayerStats[]>([]);
 
   useEffect(() => {
-    // eslint-disable-next-line prefer-const
-    let intervalId: ReturnType<typeof setInterval>;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
     let initialLoadDone = false;
+    let cancelled = false;
 
     const loadData = async () => {
       try {
         const teamId = sessionStorage.getItem("currentTeamId");
         if (!teamId || !sessionCode) throw new Error("Missing session or team info");
-        setMyTeamId(teamId);
+        if (!cancelled) setMyTeamId(teamId);
 
         const details = await getSessionDetails(sessionCode);
+        if (cancelled) return;
         setTargetTeam(details.session.target_team);
         setTeams(details.teams);
 
@@ -97,6 +98,7 @@ export function FinalResultsPage() {
           fetchFinalResultsAPI(details.session.session_id),
           fetchTeamStatsAPI(teamId, 2).catch(() => ({ points: 0, raw_shots: [] as RawShot[] })),
         ]);
+        if (cancelled) return;
         const myEntry = final.teams.find((t) => t.team_id === teamId);
         const opponents = final.teams.filter((t) => t.team_id !== teamId);
 
@@ -123,14 +125,19 @@ export function FinalResultsPage() {
         });
         setWaiting(false);
         setLoading(false);
-        if (intervalId) clearInterval(intervalId);
+        // NOTE: do NOT clear interval here — keep polling so late score updates
+        // (e.g. another teammate finishing on a different device) propagate
+        // without requiring a manual refresh.
 
         const { players } = await fetchTeamPlayers(teamId);
+        if (cancelled) return;
         setMyPlayerStats(players);
       } catch (err: unknown) {
         if (!initialLoadDone) {
-          setError(err instanceof Error ? err.message : "Failed to load final results");
-          setLoading(false);
+          if (!cancelled) {
+            setError(err instanceof Error ? err.message : "Failed to load final results");
+            setLoading(false);
+          }
           if (intervalId) clearInterval(intervalId);
         } else {
           console.error("Polling final results failed:", err);
@@ -141,9 +148,10 @@ export function FinalResultsPage() {
     };
 
     loadData();
-    intervalId = setInterval(loadData, 3000);
+    intervalId = setInterval(loadData, 5000);
 
     return () => {
+      cancelled = true;
       if (intervalId) clearInterval(intervalId);
     };
   }, [sessionCode]);

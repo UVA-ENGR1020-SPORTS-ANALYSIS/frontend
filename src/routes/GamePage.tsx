@@ -172,18 +172,35 @@ export function GamePage() {
         console.warn("Could not clear existing round shots:", err);
       }
 
-      await Promise.all(
-        shots.map((shot) =>
-          submitShotAPI({
-            player_id: shot.playerId,
-            team_id: teamId,
-            session_id: sessionId,
-            round_number: currentRound,
-            zone: shot.zone,
-            shot_made: shot.made,
-          })
-        )
-      );
+      // Submit shots sequentially with up to 2 retries each.
+      // Sequential avoids a known race condition in the backend's
+      // increment_player_stats (read-modify-write under parallel writes).
+      // Retry-per-shot prevents one flaky request from forcing the user
+      // to re-press Finish Round.
+      for (const shot of shots) {
+        let lastErr: unknown = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await submitShotAPI({
+              player_id: shot.playerId,
+              team_id: teamId,
+              session_id: sessionId,
+              round_number: currentRound,
+              zone: shot.zone,
+              shot_made: shot.made,
+            });
+            lastErr = null;
+            break;
+          } catch (err) {
+            lastErr = err;
+            if (attempt < 2) {
+              await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+            }
+          }
+        }
+        if (lastErr) throw lastErr;
+      }
+
       await finishRoundAPI({ team_id: teamId, round_number: currentRound });
       if (currentRound === 2) {
         navigate(`/session/${sessionCode}/final`);

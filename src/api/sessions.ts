@@ -1,13 +1,32 @@
 const BASE_URL = ((import.meta.env.VITE_API_URL as string | undefined) || "http://localhost:8000").replace(/\/$/, "");
 
-async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+async function fetchWithTimeout(url: string, init: RequestInit | undefined, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12_000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  const method = (init?.method || "GET").toUpperCase();
+  if (method === "GET") {
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await fetchWithTimeout(url, init, 20_000);
+      } catch (err) {
+        lastErr = err;
+        if (attempt < 1) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+    }
+    throw lastErr;
+  }
+  return fetchWithTimeout(url, init, 15_000);
 }
 
 export interface CheckSessionResponse {
