@@ -197,7 +197,7 @@ export function GamePage() {
         });
       };
 
-      const CONCURRENCY = 4;
+      const CONCURRENCY = 2;
       let nextIndex = 0;
       const total = shots.length;
       const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, async () => {
