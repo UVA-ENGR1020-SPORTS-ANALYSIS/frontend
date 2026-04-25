@@ -188,22 +188,34 @@ export function FinalResultsPage() {
           intervalId = null;
         }
       } catch (err: unknown) {
-        // Once results have rendered once, never overwrite the page with an error
-        // — just log and let the next poll try again.
+        // Don't show an error screen on transient failures. Backend cold
+        // starts, Supabase rate limits, and brief 500s should auto-retry
+        // via the polling interval — not bail to "Go Home".
+        consecutiveTransientMisses += 1;
         if (resultsEverLoaded) {
           console.error("Polling final results failed:", err);
           return;
         }
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load final results");
-          setLoading(false);
+        // Only show a hard error if we've been failing for ~30s straight
+        // on first load with no successful render yet.
+        if (consecutiveTransientMisses >= 10) {
+          if (!cancelled) {
+            setError(err instanceof Error ? err.message : "Failed to load final results");
+            setLoading(false);
+          }
+          if (intervalId) clearInterval(intervalId);
+        } else {
+          console.warn(
+            `FinalResultsPage: load attempt ${consecutiveTransientMisses} failed, retrying:`, err
+          );
         }
-        if (intervalId) clearInterval(intervalId);
       }
     };
 
     loadData();
-    intervalId = setInterval(loadData, 1200);
+    // Slow polling: 3s — fast enough to feel responsive, slow enough not
+    // to dogpile the backend (especially with multiple devices polling).
+    intervalId = setInterval(loadData, 3000);
 
     return () => {
       cancelled = true;

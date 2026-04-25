@@ -47,7 +47,10 @@ export function ResultsPage() {
   const [playerStats, setPlayerStats] = useState<RoundPlayerStat[]>([]);
 
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+    let attempt = 0;
+
+    const tryLoad = async (): Promise<void> => {
       try {
         const tId = sessionStorage.getItem("currentTeamId");
         if (!tId || !sessionCode) throw new Error("Missing session or team info");
@@ -117,12 +120,27 @@ export function ResultsPage() {
           };
         });
         setPlayerStats(nextPlayerStats);
+        if (!cancelled) setLoading(false);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Failed to load stats");
-      } finally {
-        setLoading(false);
+        attempt += 1;
+        // Keep retrying transient failures (cold start, 500s) for up to ~30s
+        // before showing an unrecoverable error screen.
+        if (attempt < 10 && !cancelled) {
+          console.warn(`ResultsPage: load attempt ${attempt} failed, retrying:`, err);
+          setTimeout(() => {
+            if (!cancelled) tryLoad();
+          }, 2500);
+        } else if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load stats");
+          setLoading(false);
+        }
       }
-    })();
+    };
+
+    tryLoad();
+    return () => {
+      cancelled = true;
+    };
   }, [sessionCode]);
 
   // Poll for opponent completion if multi-team. We cross-check two
