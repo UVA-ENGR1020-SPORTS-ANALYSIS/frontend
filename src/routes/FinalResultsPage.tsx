@@ -143,13 +143,16 @@ export function FinalResultsPage() {
         const myEntry = final.teams.find((t) => t.team_id === teamId);
         const opponents = final.teams.filter((t) => t.team_id !== teamId);
 
-        // Multi-team mode: if the backend hasn't surfaced the opponents yet
-        // (transient race during finalization), skip this update so we don't
-        // briefly render "24 vs 0". Stay on the loading/waiting view; the
-        // next poll will pick up the full payload.
-        if (details.session.target_team > 1 && opponents.length === 0) {
+        // Don't render until BOTH sides of the scoreboard are present.
+        // Without this we'd flash "24 vs 0" or "0 vs 13" while the backend
+        // is still finalizing. Stay on the loading view and try again.
+        const myMissing = !myEntry;
+        const oppMissing = details.session.target_team > 1 && opponents.length === 0;
+        if (myMissing || oppMissing) {
           consecutiveTransientMisses += 1;
-          console.warn("FinalResultsPage: no opponents in final_results yet, retrying");
+          console.warn(
+            `FinalResultsPage: incomplete payload (myMissing=${myMissing}, oppMissing=${oppMissing}), retrying`
+          );
           return;
         }
 
