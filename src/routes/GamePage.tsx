@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { HalfCourt, type ShotDot } from "@/components/HalfCourt";
 import { PlayerPanel } from "@/components/PlayerPanel";
 import { getSessionDetails } from "@/api/sessions";
-import { submitShotAPI, finishRoundAPI, deleteRoundShotsAPI } from "@/api/game";
+import { submitShotAPI, finishRoundAPI, deleteRoundShotsAPI, fetchTeamStatsAPI } from "@/api/game";
 
 // ── Constants ──
 const SHOTS_PER_PLAYER = 5;
@@ -38,6 +38,10 @@ export function GamePage() {
 
   // Finishing-phase progress (e.g. "3 / 20 submitted")
   const [submittedCount, setSubmittedCount] = useState(0);
+  // After all shots are submitted, we briefly poll the backend until the
+  // shots are visible to reads — without this, ResultsPage can land before
+  // Supabase's reads catch up and render an empty 0/0 page.
+  const [verifying, setVerifying] = useState(false);
   // Brief visible error so a transient submit failure isn't silent
   // (Finish Round looking like it "did nothing").
   const [finishError, setFinishError] = useState<string>("");
@@ -212,6 +216,25 @@ export function GamePage() {
       await Promise.all(workers);
 
       await finishRoundAPI({ team_id: teamId, round_number: currentRound });
+
+      // Verify writes are visible to reads before navigating. Supabase
+      // free tier sometimes lags here — without this, ResultsPage can
+      // render with empty stats. Poll until raw_shots count matches what
+      // we just submitted, or until ~8s elapses (then navigate anyway).
+      setVerifying(true);
+      const expectedShotCount = total;
+      const verifyDeadline = Date.now() + 8_000;
+      while (Date.now() < verifyDeadline) {
+        try {
+          const check = await fetchTeamStatsAPI(teamId, currentRound);
+          if ((check.raw_shots?.length ?? 0) >= expectedShotCount) break;
+        } catch {
+          // Transient — keep retrying within the deadline.
+        }
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      setVerifying(false);
+
       if (currentRound === 2) {
         navigate(`/session/${sessionCode}/final`);
       } else {
@@ -376,9 +399,13 @@ export function GamePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3 px-6 py-5 rounded-2xl bg-card border shadow-xl">
             <Loader2 className="size-10 animate-spin text-primary" />
-            <p className="text-lg font-semibold">Finishing round…</p>
+            <p className="text-lg font-semibold">
+              {verifying ? "Saving results…" : "Finishing round…"}
+            </p>
             <p className="text-sm text-muted-foreground tabular-nums">
-              {submittedCount} / {shots.length} shots submitted
+              {verifying
+                ? "Confirming your shots are recorded"
+                : `${submittedCount} / ${shots.length} shots submitted`}
             </p>
           </div>
         </div>
