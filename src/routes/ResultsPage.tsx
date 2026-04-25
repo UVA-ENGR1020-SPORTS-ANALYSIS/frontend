@@ -50,6 +50,10 @@ export function ResultsPage() {
   const [totalPoints, setTotalPoints] = useState(cachedInitial?.totalPoints ?? 0);
 
   const [targetTeam, setTargetTeam] = useState(cachedInitial?.targetTeam ?? 1);
+  // True when the session physically has only one team — handles the case
+  // where the backend stored target_team=2 for what was actually played as
+  // a single-team session (no opponent will ever join).
+  const [effectivelySolo, setEffectivelySolo] = useState(false);
   const [sessionId, setSessionId] = useState(cachedInitial?.sessionId ?? "");
   const [teamId, setTeamId] = useState(cachedInitial?.teamId ?? "");
   // Persist across navigations (e.g. View Stats → back) so we don't re-poll
@@ -76,6 +80,9 @@ export function ResultsPage() {
         setTargetTeam(details.session.target_team);
         setSessionId(details.session.session_id);
         setTotalPoints(stats.points);
+        // If this session only has one team, there is no opponent to wait
+        // for — show the finished view even if target_team was stored as >1.
+        setEffectivelySolo((details.teams ?? []).length <= 1);
 
         // Build zone stats from round-specific raw_shots
         const zStats = stats.raw_shots.reduce((acc: Record<number, ZoneStat>, s: RawShot) => {
@@ -156,7 +163,7 @@ export function ResultsPage() {
   // can still confirm via getSessionDetails that every other team has
   // round_1_finished=true.
   useEffect(() => {
-    if (targetTeam === 1 || !sessionId || !teamId || !sessionCode || opponentReady) return;
+    if (targetTeam === 1 || effectivelySolo || !sessionId || !teamId || !sessionCode || opponentReady) return;
 
     const checkOnce = async () => {
       try {
@@ -203,7 +210,7 @@ export function ResultsPage() {
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [targetTeam, sessionId, teamId, sessionCode, opponentReady, opponentReadyKey]);
+  }, [targetTeam, effectivelySolo, sessionId, teamId, sessionCode, opponentReady, opponentReadyKey]);
 
 
   if (loading) {
@@ -251,7 +258,7 @@ export function ResultsPage() {
         View Stats
       </Button>
       <div className="h-14 flex items-center justify-center shrink-0 z-10 mt-2">
-        {targetTeam === 1 ? (
+        {targetTeam === 1 || effectivelySolo ? (
           <div className="p-4 bg-green-500/10 text-green-600 font-bold rounded-lg border border-green-500/20">
             Game Finished! Excellent Performance.
           </div>
