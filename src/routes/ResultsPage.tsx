@@ -7,6 +7,7 @@ import { PlayerStatsList } from "@/components/PlayerStatsList";
 import { fetchTeamStatsAPI, fetchOpponentStatsAPI } from "@/api/game";
 import type { RawShot } from "@/api/game";
 import { getSessionDetails } from "@/api/sessions";
+import { fetchTeamPlayers } from "@/api/players";
 
 interface RoundPlayerStat {
   player_id: string;
@@ -56,20 +57,29 @@ export function ResultsPage() {
         if (!tId || !sessionCode) throw new Error("Missing session or team info");
         setTeamId(tId);
 
-        const [details, stats] = await Promise.all([
+        const [details, stats, teamPlayersRes] = await Promise.all([
           getSessionDetails(sessionCode),
           fetchTeamStatsAPI(tId, 1),
+          fetchTeamPlayers(tId).catch(() => ({ team_id: tId, players: [] })),
         ]);
 
-        // Defensive: backend has occasionally returned 0 points even though
-        // raw_shots exist. Don't render that — and wipe any cached version
-        // of it so View Stats -> back doesn't keep showing the bad value.
         const rawShotsPoints = stats.raw_shots.reduce(
           (sum, s) => sum + (s.points ?? 0),
           0
         );
         if (stats.raw_shots.length > 0 && stats.points === 0 && rawShotsPoints > 0) {
           throw new Error("Backend returned 0 points despite shots existing");
+        }
+        // The shots table can lag briefly right after handleFinishRound
+        // commits — the player table (incrementally updated on each shot
+        // submit) reflects the writes faster. If it sums to non-zero but
+        // round-1 raw_shots came back empty, the read is stale: retry.
+        const playerTablePoints = (teamPlayersRes.players ?? []).reduce(
+          (sum, p) => sum + (p.total_points ?? 0),
+          0
+        );
+        if (playerTablePoints > 0 && stats.raw_shots.length === 0) {
+          throw new Error("Round 1 shots query came back empty but player table has points");
         }
 
         setTargetTeam(details.session.target_team);
